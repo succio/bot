@@ -3544,6 +3544,43 @@ button:hover {
     break-after: auto;
     page-break-after: auto;
   }
+
+  .bmo-void-report,
+  .rbc-void-report {
+    display: block;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+  }
+
+  .bmo-void-page,
+  .rbc-void-page {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .cibc-void-report {
+    display: block;
+    width: 210mm;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .cibc-void-page {
+    margin: 0;
+  }
+
+  #cibcVoidPage1 {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  #cibcVoidPage2 {
+    break-before: auto;
+    page-break-before: auto;
+    break-after: auto;
+    page-break-after: auto;
+  }
 }
 
 .bmo-void-report,
