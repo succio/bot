@@ -38,34 +38,53 @@ async function generatePdf(presetData) {
 
   const browser = await getBrowser();
   const page = await browser.newPage();
+  const docType = presetData.documentType || 'unknown';
 
   try {
     await page.setViewport({ width: 1280, height: 900 });
-    page.setDefaultNavigationTimeout(90000);
-    page.setDefaultTimeout(45000);
+    page.setDefaultNavigationTimeout(60000);
+    page.setDefaultTimeout(15000);
 
-    // Visit origin first so localStorage is scoped to the right domain
-    await page.goto(`${appUrl}/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    page.on('pageerror', (err) => {
+      console.error(`PDF page error (${docType}):`, err.message);
+    });
 
-    // Inject auth token — checkSession() in index.html will find it and pass
-    await page.evaluate((token) => {
-      localStorage.setItem('token', token);
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const url = request.url();
+      if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//i.test(url)) {
+        request.abort().catch(() => {});
+        return;
+      }
+      request.continue().catch(() => {});
+    });
+
+    // Inject auth token before app scripts run, so checkSession() passes on first load.
+    await page.evaluateOnNewDocument((token) => {
+      window.localStorage.setItem('token', token);
     }, renderToken);
 
     // Load the document page; the web app's PayrollEngine + renderers run here
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    // Wait for the preview section to be populated by the app
-    await page.waitForFunction(() => {
+    const ready = await page.waitForFunction(() => {
       const report = document.querySelector(
-        '.paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden)'
+        '#paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden)'
       );
-      return report && report.getBoundingClientRect().height > 100;
-    }, { timeout: 30000 });
+      if (!report) return false;
+      const rect = report.getBoundingClientRect();
+      return rect.height > 100 && rect.width > 100;
+    }, { timeout: 15000 }).then(() => true).catch((err) => {
+      console.warn(`PDF preview readiness timed out (${docType}): ${err.message}`);
+      return false;
+    });
 
     // Settle — fonts, images, JS layout
-    await page.evaluate(() => document.fonts?.ready).catch(() => {});
-    await new Promise(r => setTimeout(r, 1500));
+    await Promise.race([
+      page.evaluate(() => document.fonts?.ready).catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, 2000))
+    ]);
+    await new Promise(r => setTimeout(r, ready ? 1000 : 3000));
 
     // Strip all UI chrome and expose only the document preview at full width.
     // The web app's calculations have already run; we just need a clean capture.
@@ -97,6 +116,18 @@ async function generatePdf(presetData) {
       if (app) Object.assign(app.style, { display: 'block', width: '100%' });
     });
 
+    const visibleReport = await page.evaluate(() => {
+      const report = document.querySelector(
+        '#paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden)'
+      );
+      if (!report) return null;
+      const rect = report.getBoundingClientRect();
+      return { id: report.id, width: rect.width, height: rect.height };
+    });
+    if (!visibleReport || visibleReport.height < 100 || visibleReport.width < 100) {
+      throw new Error(`Document preview did not render for ${docType}`);
+    }
+
     const pdfData = await page.pdf({
       format: 'Letter',
       printBackground: true,
@@ -106,7 +137,7 @@ async function generatePdf(presetData) {
     const pdfBuf = Buffer.from(pdfData);
     if (pdfBuf.length < 2000) throw new Error(`PDF too small: ${pdfBuf.length} bytes — page did not render`);
 
-    console.log(`PDF generated: ${pdfBuf.length} bytes`);
+    console.log(`PDF generated (${docType}, ${visibleReport.id}): ${pdfBuf.length} bytes`);
     return pdfBuf;
 
   } finally {
