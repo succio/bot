@@ -184,6 +184,17 @@ async function generatePdf(presetData) {
         `;
         document.head.appendChild(style);
       }
+
+      if (type === 'scotiaVoidCheck') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: A4; margin: 0; }
+          html, body { width: 210mm; height: 297mm; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow: hidden !important; }
+          #scotiaVoidReport { display: block !important; width: 210mm !important; height: 297mm !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; overflow: hidden !important; }
+          #scotiaVoidPage { width: 210mm !important; height: 297mm !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; break-after: auto !important; page-break-after: auto !important; overflow: hidden !important; }
+        `;
+        document.head.appendChild(style);
+      }
     }, docType);
 
     const visibleReport = await page.evaluate(() => {
