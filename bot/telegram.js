@@ -354,9 +354,10 @@ bot.start(async (ctx) => {
   const user = getOrCreateTgUser(ctx);
   const name = ctx.from.first_name || 'there';
   await ctx.reply(
-    `👋 Welcome to *replicas.live*, ${name}!\n\n` +
+    `👋 Welcome *${name}*, this is Succio's bot\n\n` +
     `I generate Canadian financial documents — bank statements, paystubs, NOA, T4 slips, void cheques — and send the PDF right here.\n\n` +
     `Your balance is *${formatUsd(getBalance(user))}*.\n\n` +
+    `contact support: @succiov3\n\n` +
     `Use the menu below to get started:`,
     {
       parse_mode: 'Markdown',
@@ -397,7 +398,7 @@ bot.hears(['❓ Help', '/help'], async (ctx) => {
     `• ${PRICE_LABELS.t4} — ${formatUsd(DOCUMENT_PRICES.t4)}\n` +
     `• ${PRICE_LABELS.noa} — ${formatUsd(DOCUMENT_PRICES.noa)}\n` +
     `• ${PRICE_LABELS.void} — ${formatUsd(DOCUMENT_PRICES.void)}\n\n` +
-    `Support: Contact us via the web app at replicas.live`,
+    `Contact Support: @succiov3`,
     { parse_mode: 'Markdown' }
   );
 });
