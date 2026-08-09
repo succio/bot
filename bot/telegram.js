@@ -132,6 +132,14 @@ function normalizeSin(text) {
   return String(text || '').trim();
 }
 
+function noaLocationFromAddress(address) {
+  const lines = String(address || '')
+    .split(/\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return (lines[lines.length - 1] || '').toUpperCase();
+}
+
 const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
 
@@ -390,21 +398,13 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
-      sess.step = 'noa_balance';
-      return ctx.reply('Balance owing amount (e.g. 4200.00):');
+      sess.step = 'noa_tax_deducted';
+      return ctx.reply('Income tax deducted (e.g. 33043.00):');
     }
-    if (sess.step === 'noa_balance') {
+    if (sess.step === 'noa_tax_deducted') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
-      d.balance = val;
-      sess.step = 'noa_crdr';
-      return ctx.reply('Is this a balance owing or a refund?', Markup.keyboard([
-        ['Balance Owing (DR)', 'Refund (CR)'], ['❌ Cancel']
-      ]).resize());
-    }
-    if (sess.step === 'noa_crdr') {
-      if (!['Balance Owing (DR)', 'Refund (CR)'].includes(text)) return ctx.reply('Please choose from the menu.');
-      d.crdr = text.includes('DR') ? 'DR' : 'CR';
+      d.taxDeducted = val;
       return queueGeneration(ctx, sess, 'NOA', (data) => finalizeNOA(ctx, data));
     }
   }
@@ -541,28 +541,22 @@ async function finalizeNOA(ctx, d) {
     const presetData = {
       documentType: 'noaStatement',
       noaStatement: {
-        name: d.name,
+        name: d.name.toUpperCase(),
         address: d.address,
-        location: d.address.split(',').slice(-1)[0]?.trim() || '',
+        location: noaLocationFromAddress(d.address),
         sin: d.sin,
         taxYear: d.taxYear,
         annualIncome: d.income,
-        taxDeducted: 0,
-        balanceOverride: d.balance,
-        balanceOverrideCrdr: d.crdr,
+        taxDeducted: d.taxDeducted,
+        balanceOverride: null,
+        balanceOverrideCrdr: 'DR',
         commissioner: 'Bob Hamilton',
         dateIssued: new Date().toLocaleDateString('en-CA', { month: 'short', day: '2-digit', year: 'numeric' }),
         refNumber: Math.floor(Math.random() * 9000000 + 1000000).toString(),
         refCode: Math.random().toString(36).slice(2, 10).toUpperCase(),
         accountNumber: '000000000',
-        explanation: `Based on our assessment of your ${d.taxYear} income tax return, you have a ${d.crdr === 'DR' ? 'balance owing' : 'refund'} of $${fmt(d.balance)}.`,
-        summaryRows: [
-          { line: '15000', description: 'Total income', amount: d.income, crdr: '' },
-          { line: '43500', description: 'Total payable', amount: d.crdr === 'DR' ? d.balance : 0, crdr: '' },
-          { line: '48200', description: 'Total credits', amount: d.crdr === 'CR' ? d.balance : 0, crdr: '' },
-          { line: '', description: 'Balance from this assessment', amount: d.balance, crdr: d.crdr },
-          { line: '', description: 'Direct deposit', amount: d.crdr === 'CR' ? d.balance : 0, crdr: d.crdr === 'CR' ? 'CR' : '' }
-        ]
+        explanation: `We have assessed your return as filed. Your notice of assessment reflects the information you submitted on your ${d.taxYear} income tax return. If you have any questions about your assessment, please call our Individual Tax and Enquiries line at 1-800-959-8281.`,
+        summaryRows: []
       }
     };
 
