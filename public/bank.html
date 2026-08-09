@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bank Statements — replicas.live</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #111111;
+      --muted: #666666;
+      --light: #999999;
+      --border: #e0e0e0;
+      --surface: #fafafa;
+      --green: #1a5c38;
+      --green-hover: #144a2d;
+      --error: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: #fff;
+      font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem; border-bottom: 1px solid var(--border);
+    }
+    .topbar-brand { font-size: 1.3rem; font-weight: 400; letter-spacing: 0.06em; cursor: pointer; }
+    .topbar-right { display: flex; align-items: center; gap: 1rem; }
+    .token-badge {
+      font-size: 0.82rem; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 2px; padding: 0.3rem 0.7rem;
+    }
+    .token-badge strong { color: var(--ink); }
+    .btn {
+      padding: 0.5rem 1.2rem; border: none; border-radius: 2px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      font-family: inherit; letter-spacing: 0.02em; transition: all 0.2s;
+    }
+    .btn-outline {
+      background: transparent; color: var(--muted); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { color: var(--ink); border-color: var(--ink); }
+
+    /* ── Main ── */
+    .main { flex: 1; max-width: 820px; width: 100%; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    .page-title { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .page-sub { font-size: 0.88rem; color: var(--muted); margin-bottom: 2.2rem; }
+
+    /* ── Toggle group ── */
+    .field-row { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
+    .field-label {
+      font-size: 0.72rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .toggle-group {
+      display: flex; gap: 0; border: 1px solid var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .toggle-btn {
+      flex: 1; padding: 0.6rem 0.8rem; background: var(--surface);
+      border: none; border-right: 1px solid var(--border);
+      font-family: inherit; font-size: 0.88rem; font-weight: 400;
+      color: var(--muted); cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .toggle-btn:last-child { border-right: none; }
+    .toggle-btn.active { background: var(--ink); color: #fff; font-weight: 600; }
+    .toggle-btn:hover:not(.active) { background: #f0f0f0; color: var(--ink); }
+
+    /* ── Package row ── */
+    .package-row { display: flex; align-items: center; gap: 0; }
+    .package-row .toggle-group { flex: 1; }
+    .custom-months-wrap {
+      display: none; align-items: center; gap: 0.5rem;
+      border: 1px solid var(--border); border-left: none; border-radius: 0 2px 2px 0;
+      padding: 0 0.8rem; background: var(--surface); height: 100%;
+    }
+    .custom-months-wrap.visible { display: flex; }
+    .custom-months-wrap label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+    .custom-months-input {
+      width: 52px; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 2px;
+      font-family: inherit; font-size: 0.88rem; text-align: center; background: #fff; outline: none;
+    }
+    .custom-months-input:focus { border-color: var(--ink); }
+
+    /* ── Period row ── */
+    .period-row { display: flex; gap: 1rem; }
+    .period-row .field-row { flex: 1; }
+
+    /* ── Inputs ── */
+    .fi, select {
+      width: 100%; padding: 0.65rem 0.9rem;
+      border: 1px solid var(--border); border-radius: 2px;
+      font-family: inherit; font-size: 0.92rem; color: var(--ink);
+      background: var(--surface); outline: none; transition: border-color 0.2s;
+    }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 0.9rem center; padding-right: 2.2rem;
+      cursor: pointer;
+    }
+    .fi:focus, select:focus { border-color: var(--ink); background: #fff; }
+    .fta {
+      width: 100%; padding: 0.65rem 0.9rem;
+      border: 1px solid var(--border); border-radius: 2px;
+      font-family: inherit; font-size: 0.92rem; color: var(--ink);
+      background: var(--surface); resize: vertical; line-height: 1.6;
+      outline: none; transition: border-color 0.2s; min-height: 68px;
+    }
+    .fta:focus { border-color: var(--ink); background: #fff; }
+    .fta.large { min-height: 120px; }
+
+    /* ── Grid helpers ── */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.2rem; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 1.2rem; }
+
+    /* ── Form sections ── */
+    .form-section {
+      border: 1px solid var(--border); border-radius: 3px;
+      padding: 1.3rem 1.3rem 0.3rem; margin-bottom: 1.1rem; background: var(--surface);
+    }
+    .section-title {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--ink); margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .section-badge {
+      font-size: 0.67rem; font-weight: 400; text-transform: none; letter-spacing: 0;
+      background: #e8e8e8; color: #888; padding: 0.12rem 0.45rem; border-radius: 2px;
+    }
+
+    /* ── Token cost chip ── */
+    .token-cost {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-size: 0.8rem; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 2px; padding: 0.35rem 0.75rem;
+      background: var(--surface);
+    }
+    .token-cost strong { color: var(--ink); }
+
+    /* ── Actions ── */
+    .actions { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; flex-wrap: wrap; }
+    .btn-generate {
+      background: var(--green); color: #fff;
+      padding: 0.75rem 2.4rem; font-size: 1rem; border-radius: 2px;
+    }
+    .btn-generate:hover:not(:disabled) { background: var(--green-hover); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Progress ── */
+    .progress-wrap { margin-top: 1.6rem; display: none; flex-direction: column; gap: 0.8rem; }
+    .progress-wrap.visible { display: flex; }
+    .progress-steps { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .step-pill {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.78rem; padding: 0.3rem 0.7rem;
+      border: 1px solid var(--border); border-radius: 2px;
+      background: var(--surface); color: var(--muted); transition: all 0.2s;
+    }
+    .step-pill.active { border-color: var(--ink); color: var(--ink); background: #fff; }
+    .step-pill.done { border-color: var(--green); color: var(--green); background: #f0f7f3; }
+    .step-spinner {
+      width: 10px; height: 10px;
+      border: 1.5px solid #ccc; border-top-color: var(--ink);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-status { font-size: 0.84rem; color: var(--muted); }
+
+    /* ── Error ── */
+    .error-bar {
+      display: none; margin-top: 1rem; padding: 0.75rem 1rem;
+      border: 1px solid #f5c6c6; border-radius: 2px; background: #fdf3f3;
+      font-size: 0.85rem; color: var(--error);
+    }
+    .error-bar.visible { display: block; }
+
+    /* ── Results ── */
+    .results-section { margin-top: 2.4rem; display: none; }
+    .results-section.visible { display: block; }
+    .results-title {
+      font-size: 0.72rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem;
+    }
+    .result-cards { display: flex; flex-direction: column; gap: 0.7rem; }
+    .result-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.2rem; border: 1px solid var(--border);
+      border-radius: 2px; background: #fff; gap: 1rem;
+    }
+    .result-card-left { display: flex; flex-direction: column; gap: 0.2rem; }
+    .result-card-month { font-size: 0.95rem; font-weight: 600; }
+    .result-card-balance { font-size: 0.78rem; color: var(--muted); }
+    .btn-open {
+      background: var(--ink); color: #fff;
+      padding: 0.5rem 1.2rem; font-size: 0.82rem; white-space: nowrap;
+      border-radius: 2px; border: none; font-family: inherit;
+      font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-open:hover { background: #333; }
+
+    /* ── Divider ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 2.8rem 0; }
+    .other-docs-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.8rem;
+    }
+    .other-docs-label { font-size: 0.85rem; color: var(--muted); }
+    .btn-other {
+      font-size: 0.82rem; color: var(--ink); background: transparent;
+      border: 1px solid var(--border); border-radius: 2px;
+      padding: 0.45rem 1rem; cursor: pointer; font-family: inherit;
+      font-weight: 600; transition: all 0.2s;
+    }
+    .btn-other:hover { border-color: var(--ink); }
+
+    @media (max-width: 600px) {
+      .g2, .g3 { grid-template-columns: 1fr; }
+      .main { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-brand" onclick="window.location.href='/dashboard.html'">replicas.live</span>
+  <div class="topbar-right">
+    <div class="token-badge">Tokens: <strong id="tokenCount">–</strong></div>
+    <button class="btn btn-outline" onclick="window.location.href='/dashboard.html'">Dashboard</button>
+  </div>
+</div>
+
+<div class="main">
+  <h1 class="page-title">Bank Statements</h1>
+  <p class="page-sub">Generate consecutive monthly statements with realistic, carry-over balances.</p>
+
+  <!-- Bank selector -->
+  <div class="field-row">
+    <span class="field-label">Bank</span>
+    <div class="toggle-group" id="bankGroup">
+      <button class="toggle-btn active" data-bank="td">TD</button>
+      <button class="toggle-btn" data-bank="scotia">Scotiabank</button>
+      <button class="toggle-btn" data-bank="cibc">CIBC</button>
+      <button class="toggle-btn" data-bank="rbc">RBC</button>
+    </div>
+  </div>
+
+  <!-- Package selector -->
+  <div class="field-row">
+    <span class="field-label">Package</span>
+    <div class="package-row">
+      <div class="toggle-group" id="packageGroup">
+        <button class="toggle-btn active" data-months="1">1 Month</button>
+        <button class="toggle-btn" data-months="3">3 Months</button>
+        <button class="toggle-btn" data-months="6">6 Months</button>
+        <button class="toggle-btn" data-months="custom">Custom</button>
+      </div>
+      <div class="custom-months-wrap" id="customWrap">
+        <label for="customMonthsInput">Months:</label>
+        <input class="custom-months-input" id="customMonthsInput" type="number" min="1" max="12" value="2" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Start period -->
+  <div class="period-row">
+    <div class="field-row">
+      <label class="field-label" for="startMonth">Start Month</label>
+      <select id="startMonth">
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <label class="field-label" for="startYear">Year</label>
+      <input class="fi" type="number" id="startYear" min="2020" max="2030" value="2026" />
+    </div>
+  </div>
+
+  <!-- ═══ ACCOUNT DETAILS ═══ -->
+  <div class="form-section">
+    <div class="section-title">Account Details</div>
+    <div class="field-row">
+      <label class="field-label" for="bName">Account Holder Name</label>
+      <input class="fi" id="bName" type="text" placeholder="e.g. MR JONATHAN BOILY" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <label class="field-label" for="bAddress">Mailing Address</label>
+      <textarea class="fta" id="bAddress" rows="2" placeholder="8881 ERIN AVE&#10;BURNABY BC V3N 4E8"></textarea>
+    </div>
+    <div class="g2">
+      <div class="field-row">
+        <label class="field-label" for="bProvince">Province</label>
+        <select id="bProvince">
+          <option value="BC">BC — British Columbia</option>
+          <option value="ON">ON — Ontario</option>
+          <option value="AB">AB — Alberta</option>
+          <option value="QC">QC — Quebec</option>
+          <option value="SK">SK — Saskatchewan</option>
+          <option value="MB">MB — Manitoba</option>
+          <option value="NS">NS — Nova Scotia</option>
+          <option value="NB">NB — New Brunswick</option>
+          <option value="NL">NL — Newfoundland</option>
+          <option value="PE">PE — Prince Edward Island</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bAccountNo">Account Number</label>
+        <input class="fi" id="bAccountNo" type="text" placeholder="e.g. 7429381" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TD FIELDS ═══ -->
+  <div class="form-section" id="tdFields">
+    <div class="section-title">TD Branch Details</div>
+    <div class="g2">
+      <div class="field-row">
+        <label class="field-label" for="bBranchNo">Branch Number</label>
+        <input class="fi" id="bBranchNo" type="text" placeholder="e.g. 95290" autocomplete="off">
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bAccountType">Account Type</label>
+        <input class="fi" id="bAccountType" type="text" placeholder="UNLIMITED" autocomplete="off">
+      </div>
+    </div>
+    <div class="field-row">
+      <label class="field-label" for="bBranchAddr">Branch Address</label>
+      <textarea class="fta" id="bBranchAddr" rows="2" placeholder="7155 KINGSWAY AVE,&#10;BURNABY, BC   V5E 2V1"></textarea>
+    </div>
+  </div>
+
+  <!-- ═══ SCOTIA FIELDS ═══ -->
+  <div class="form-section" id="scotiaFields" style="display:none;">
+    <div class="section-title">Scotiabank Account Details</div>
+    <div class="field-row">
+      <label class="field-label" for="bScotiaType">Account Type</label>
+      <input class="fi" id="bScotiaType" type="text" placeholder="Your Preferred Package" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- ═══ CIBC FIELDS ═══ -->
+  <div class="form-section" id="cibcFields" style="display:none;">
+    <div class="section-title">CIBC Account Details</div>
+    <div class="field-row">
+      <label class="field-label" for="bTransit">Branch Transit</label>
+      <input class="fi" id="bTransit" type="text" placeholder="5-digit transit number" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- ═══ RBC FIELDS ═══ -->
+  <div class="form-section" id="rbcFields" style="display:none;">
+    <div class="section-title">RBC Account Details</div>
+    <div class="field-row">
+      <label class="field-label" for="bRbcType">Account Type</label>
+      <select id="bRbcType">
+        <option value="personal">Personal</option>
+        <option value="business">Business</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <label class="field-label" for="bRbcBranch">Bank Branch Name &amp; Address</label>
+      <textarea class="fta" id="bRbcBranch" rows="2" placeholder="Royal Bank of Canada&#10;4567 Kingsway, Burnaby BC V5H 2A7"></textarea>
+    </div>
+  </div>
+
+  <!-- ═══ BALANCES ═══ -->
+  <div class="form-section">
+    <div class="section-title">Balances &amp; Transactions</div>
+    <div class="g3">
+      <div class="field-row">
+        <label class="field-label" for="bOpening">Opening Balance ($)</label>
+        <input class="fi" id="bOpening" type="number" step="0.01" min="0" placeholder="e.g. 3200.00">
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bClosing">Target Closing Balance ($) <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.7rem;color:#aaa;">per month</span></label>
+        <input class="fi" id="bClosing" type="number" step="0.01" min="0" placeholder="optional">
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bTxCount">Transaction Rows</label>
+        <input class="fi" id="bTxCount" type="number" min="1" max="100" value="50">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PAYROLL ═══ -->
+  <div class="form-section">
+    <div class="section-title">Payroll / Direct Deposit <span class="section-badge">Optional</span></div>
+    <div class="field-row">
+      <label class="field-label" for="bEmployer">Employer Name</label>
+      <input class="fi" id="bEmployer" type="text" placeholder="e.g. REGEN MEDIA" autocomplete="off">
+    </div>
+    <div class="g3">
+      <div class="field-row">
+        <label class="field-label" for="bPayAmount">Amount per Deposit ($)</label>
+        <input class="fi" id="bPayAmount" type="number" step="0.01" min="0" placeholder="e.g. 7666.67">
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bPayFreq">Frequency</label>
+        <select id="bPayFreq">
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bPayDates">Deposit Dates</label>
+        <input class="fi" id="bPayDates" type="text" placeholder="e.g. 3rd and 17th" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ EXTRA NOTES ═══ -->
+  <div class="form-section">
+    <div class="section-title">Additional Notes <span class="section-badge">Optional</span></div>
+    <div class="field-row">
+      <textarea class="fta large" id="bNotes" placeholder="Any specific transactions to include, recurring bills, or other instructions..."></textarea>
+    </div>
+  </div>
+
+  <!-- Token cost + generate -->
+  <div class="actions">
+    <button class="btn btn-generate" id="generateBtn">Generate</button>
+    <div class="token-cost">Uses <strong id="tokenCostLabel">1</strong> <span id="tokenWord">token</span></div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-steps" id="progressSteps"></div>
+    <p class="progress-status" id="progressStatus"></p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-bar" id="errorBar"></div>
+
+  <!-- Results -->
+  <div class="results-section" id="resultsSection">
+    <p class="results-title">Generated Statements</p>
+    <div class="result-cards" id="resultCards"></div>
+  </div>
+
+  <hr />
+
+  <div class="other-docs-row">
+    <span class="other-docs-label">Need a payroll statement, employment letter, T4, void cheque, or NOA?</span>
+    <button class="btn-other" onclick="window.location.href='/generate.html'">Other Documents →</button>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html';
+
+  function getAuthHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+  }
+
+  async function loadTokenCount() {
+    try {
+      const res = await fetch('/api/credits/me', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const d = await res.json();
+        document.getElementById('tokenCount').textContent = d.credits ?? '–';
+      }
+    } catch {}
+  }
+  loadTokenCount();
+
+  // ── Bank toggle ──────────────────────────────────────────────────────────
+  let selectedBank = 'td';
+
+  const BANK_SECTIONS = { td: 'tdFields', scotia: 'scotiaFields', cibc: 'cibcFields', rbc: 'rbcFields' };
+
+  function applyBank(bank) {
+    selectedBank = bank;
+    Object.entries(BANK_SECTIONS).forEach(([b, id]) => {
+      document.getElementById(id).style.display = b === bank ? 'block' : 'none';
+    });
+  }
+
+  document.getElementById('bankGroup').addEventListener('click', e => {
+    const btn = e.target.closest('.toggle-btn');
+    if (!btn) return;
+    document.querySelectorAll('#bankGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+    applyBank(btn.dataset.bank);
+  });
+
+  applyBank('td');
+
+  // ── Package toggle ───────────────────────────────────────────────────────
+  let selectedMonths = 1;
+
+  document.getElementById('packageGroup').addEventListener('click', e => {
+    const btn = e.target.closest('.toggle-btn');
+    if (!btn) return;
+    document.querySelectorAll('#packageGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+    const val = btn.dataset.months;
+    const customWrap = document.getElementById('customWrap');
+    if (val === 'custom') {
+      customWrap.classList.add('visible');
+      selectedMonths = parseInt(document.getElementById('customMonthsInput').value) || 2;
+    } else {
+      customWrap.classList.remove('visible');
+      selectedMonths = parseInt(val);
+    }
+    updateTokenCost();
+  });
+
+  document.getElementById('customMonthsInput').addEventListener('input', () => {
+    selectedMonths = Math.min(12, Math.max(1, parseInt(document.getElementById('customMonthsInput').value) || 1));
+    updateTokenCost();
+  });
+
+  function updateTokenCost() {
+    document.getElementById('tokenCostLabel').textContent = selectedMonths;
+    document.getElementById('tokenWord').textContent = selectedMonths !== 1 ? 'tokens' : 'token';
+  }
+  updateTokenCost();
+
+  // ── Assemble details string from structured fields ───────────────────────
+  function gv(id) { return (document.getElementById(id) || {}).value || ''; }
+
+  function assembleDetails() {
+    const bank     = selectedBank;
+    const name     = gv('bName').trim();
+    const address  = gv('bAddress').trim();
+    const province = gv('bProvince');
+    const acctNo   = gv('bAccountNo').trim();
+    const opening  = gv('bOpening').trim();
+    const closing  = gv('bClosing').trim();
+    const txCount  = parseInt(gv('bTxCount')) || 50;
+
+    const employer  = gv('bEmployer').trim();
+    const payAmt    = gv('bPayAmount').trim();
+    const payFreq   = gv('bPayFreq');
+    const payDates  = gv('bPayDates').trim();
+    const notes     = gv('bNotes').trim();
+
+    let bankSpecific = '';
+    if (bank === 'td') {
+      bankSpecific = `Branch Number: ${gv('bBranchNo').trim()}
+Branch Address: ${gv('bBranchAddr').trim()}
+Account Type: ${gv('bAccountType').trim() || 'UNLIMITED'}`;
+    } else if (bank === 'scotia') {
+      bankSpecific = `Account Type: ${gv('bScotiaType').trim() || 'Your Preferred Package'}`;
+    } else if (bank === 'cibc') {
+      bankSpecific = `Branch Transit: ${gv('bTransit').trim()}`;
+    } else if (bank === 'rbc') {
+      bankSpecific = `Account Type: ${gv('bRbcType')}
+Bank Branch: ${gv('bRbcBranch').trim()}`;
+    }
+
+    let details = `Account Holder Name: ${name}
+Mailing Address: ${address}
+Province: ${province}
+Account Number: ${acctNo}
+${bankSpecific}
+
+Opening Balance: $${opening}
+Number of Transactions: ${txCount}`;
+
+    if (closing) details += `\nTarget Closing Balance: $${closing}`;
+
+    if (employer || payAmt) {
+      details += `\n\nPayroll / Direct Deposit:
+Employer: ${employer}
+Amount per deposit: $${payAmt}
+Frequency: ${payFreq}
+Deposit dates: ${payDates || 'evenly spaced through the month'}`;
+    }
+
+    if (notes) details += `\n\nAdditional instructions: ${notes}`;
+
+    return details;
+  }
+
+  function validateForm() {
+    const required = ['bName', 'bAddress', 'bAccountNo', 'bOpening'];
+    for (const id of required) {
+      if (!gv(id).trim()) {
+        document.getElementById(id).focus();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // ── Generate ─────────────────────────────────────────────────────────────
+  const generateBtn    = document.getElementById('generateBtn');
+  const progressWrap   = document.getElementById('progressWrap');
+  const progressSteps  = document.getElementById('progressSteps');
+  const progressStatus = document.getElementById('progressStatus');
+  const errorBar       = document.getElementById('errorBar');
+  const resultsSection = document.getElementById('resultsSection');
+  const resultCards    = document.getElementById('resultCards');
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function showError(msg) { errorBar.textContent = msg; errorBar.classList.add('visible'); }
+  function clearError()   { errorBar.classList.remove('visible'); }
+
+  function buildProgressSteps(n, startMonth, startYear) {
+    progressSteps.innerHTML = '';
+    let m = startMonth - 1, y = startYear;
+    for (let i = 0; i < n; i++) {
+      const label = MONTH_NAMES[m].slice(0, 3) + ' ' + y;
+      const pill = document.createElement('div');
+      pill.className = 'step-pill';
+      pill.id = 'step-' + i;
+      pill.textContent = label;
+      progressSteps.appendChild(pill);
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  }
+
+  function setStepActive(i) {
+    const pill = document.getElementById('step-' + i);
+    if (!pill) return;
+    pill.classList.add('active');
+    const spin = document.createElement('div');
+    spin.className = 'step-spinner';
+    pill.prepend(spin);
+  }
+
+  function setStepDone(i) {
+    const pill = document.getElementById('step-' + i);
+    if (!pill) return;
+    pill.classList.remove('active');
+    pill.classList.add('done');
+    const spin = pill.querySelector('.step-spinner');
+    if (spin) spin.remove();
+    pill.prepend(document.createTextNode('✓ '));
+  }
+
+  generateBtn.addEventListener('click', async () => {
+    if (!validateForm()) {
+      showError('Please fill in the required fields: Account Holder Name, Mailing Address, Account Number, and Opening Balance.');
+      return;
+    }
+
+    const details    = assembleDetails();
+    const startMonth = parseInt(document.getElementById('startMonth').value);
+    const startYear  = parseInt(document.getElementById('startYear').value);
+
+    clearError();
+    resultsSection.classList.remove('visible');
+    resultCards.innerHTML = '';
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating…';
+
+    progressWrap.classList.add('visible');
+    buildProgressSteps(selectedMonths, startMonth, startYear);
+    progressStatus.textContent = `Generating ${selectedMonths} statement${selectedMonths > 1 ? 's' : ''}…`;
+    for (let i = 0; i < selectedMonths; i++) setStepActive(i);
+
+    try {
+      const res = await fetch('/api/generate/bank-package', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          bank: selectedBank,
+          months: selectedMonths,
+          startYear,
+          startMonth,
+          details
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Generation failed. Please try again.');
+        if (data.partialPresets && data.partialPresets.length) renderResults(data.partialPresets);
+        return;
+      }
+
+      for (let i = 0; i < selectedMonths; i++) setStepDone(i);
+      progressStatus.textContent = `Done — ${data.presets.length} statement${data.presets.length > 1 ? 's' : ''} ready.`;
+      renderResults(data.presets);
+      loadTokenCount();
+
+    } catch {
+      showError('Network error. Please check your connection and try again.');
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = 'Generate';
+    }
+  });
+
+  function formatBalance(n) {
+    if (typeof n !== 'number') return '';
+    return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function renderResults(presets) {
+    resultCards.innerHTML = '';
+    presets.forEach((preset, i) => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      const left = document.createElement('div');
+      left.className = 'result-card-left';
+      const monthEl = document.createElement('div');
+      monthEl.className = 'result-card-month';
+      monthEl.textContent = preset._monthLabel || `Statement ${i + 1}`;
+      const balEl = document.createElement('div');
+      balEl.className = 'result-card-balance';
+      const closing = preset._closingBalance;
+      balEl.textContent = closing != null ? `Closing balance: ${formatBalance(closing)}` : '';
+      left.appendChild(monthEl);
+      if (balEl.textContent) left.appendChild(balEl);
+      const openBtn = document.createElement('button');
+      openBtn.className = 'btn-open';
+      openBtn.textContent = 'Open in Editor';
+      openBtn.addEventListener('click', () => {
+        const clean = { ...preset };
+        delete clean._monthLabel;
+        delete clean._closingBalance;
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(clean))));
+        window.open('/index.html#preset=' + encoded, '_blank');
+      });
+      card.appendChild(left);
+      card.appendChild(openBtn);
+      resultCards.appendChild(card);
+    });
+    resultsSection.classList.add('visible');
+  }
+</script>
+</body>
+</html>

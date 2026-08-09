@@ -1,0 +1,3579 @@
+:root {
+  --bg: #ffffff;
+  --card: #ffffff;
+  --line: #e0e0e0;
+  --ink: #111111;
+  --muted: #666666;
+  --accent: #111111;
+  --accent-soft: #f5f5f5;
+  --warn: #b57a15;
+  --brand-color: #111111;
+  --stub-ink: #132238;
+  --stub-line: #d8e1ee;
+  --stub-rule: #21324a;
+  --stub-bg-a: #ffffff;
+  --stub-bg-b: #f7fafd;
+  --stub-cheque-a: #ebf2fa;
+  --stub-cheque-b: #f2f7ff;
+  --stub-cheque-stripe: rgba(74, 118, 171, 0.06);
+  --stub-heading-font: "Franklin Gothic Medium", "Avenir Next Condensed", sans-serif;
+  --stub-body-font: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+html {
+  font-size: 15px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Franklin Gothic Medium", "Avenir Next Condensed", sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.topbar h1,
+.topbar-brand,
+.topbar-brand span {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #ffffff;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.topbar-logo {
+  display: none;
+}
+
+.eyebrow {
+  display: none;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #111111;
+  letter-spacing: 0.06em;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 2px;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid #e0e0e0;
+}
+
+.logout-btn {
+  background: transparent;
+  color: #666;
+  border: 1px solid #e0e0e0;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.logout-btn:hover {
+  background: #f5f5f5;
+  color: #111;
+}
+
+.topbar-actions select {
+  min-width: 210px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 1.1rem;
+  padding: 1.1rem;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(21, 35, 56, 0.06);
+}
+
+.controls {
+  padding: 1rem;
+  max-height: calc(100vh - 7.5rem);
+  overflow: auto;
+}
+
+.doc-section {
+  margin-bottom: 0.8rem;
+}
+
+.form-group {
+  border: 1px solid #d9e2ee;
+  border-radius: 10px;
+  background: #fbfdff;
+  margin-bottom: 0.65rem;
+  overflow: hidden;
+}
+
+.form-group-toggle {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #e2eaf4;
+  border-radius: 0;
+  background: #f2f7fc;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  color: #1f3456;
+}
+
+.form-group-toggle::after {
+  content: "▾";
+  color: #60748f;
+  font-size: 0.85rem;
+}
+
+.form-group.is-collapsed .form-group-toggle::after {
+  content: "▸";
+}
+
+.form-group-body {
+  padding: 0.6rem;
+}
+
+.form-group.is-collapsed .form-group-body {
+  display: none;
+}
+
+.form-group-badge {
+  margin-left: auto;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  border: 1px solid #b8d4be;
+  background: #eaf8ee;
+  color: #216039;
+}
+
+.form-group.has-missing .form-group-badge {
+  border-color: #e2c082;
+  background: #fff5df;
+  color: #7d5600;
+}
+
+.form-group.has-errors .form-group-toggle {
+  border-bottom-color: #f1c47d;
+}
+
+.field-error {
+  margin-top: 0.22rem;
+  color: #9b1c1c;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.invalid-field {
+  border-color: #d46666 !important;
+  background: #fff8f8 !important;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.controls h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.hint {
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  border: 1px solid #bcc7d6;
+  border-radius: 8px;
+  padding: 0.48rem 0.55rem;
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input[type="color"] {
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.2rem;
+}
+
+button {
+  border: 1px solid #aab8ca;
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  background: #f2f6fb;
+  color: #21324a;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: #1082c3;
+}
+
+button:hover {
+  filter: brightness(0.97);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d4dde9;
+  border-radius: 10px;
+}
+
+.editor-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 580px;
+}
+
+.editor-table th,
+.editor-table td {
+  border-bottom: 1px solid #e7edf5;
+  padding: 0.35rem;
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.editor-table th {
+  background: #f3f7fc;
+  color: #32445f;
+}
+
+.editor-table td input {
+  width: 100%;
+  min-width: 75px;
+}
+
+.editor-table td input.readonly {
+  background: #f3f6fb;
+  color: #55657e;
+}
+
+.editor-table .remove-row {
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+}
+
+.editor-table .duplicate-row {
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+}
+
+.row-actions {
+  white-space: nowrap;
+}
+
+.template-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.template-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.template-load-row {
+  grid-template-columns: 1fr auto;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.8rem;
+  background: #f6f9fe;
+  border: 1px solid #d6dfec;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.status-grid p {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.82rem;
+}
+
+.status-readiness {
+  margin-top: 0.45rem;
+  font-weight: 700;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+  flex-wrap: wrap;
+}
+
+.quick-actions button {
+  border-radius: 8px;
+  padding: 0.3rem 0.56rem;
+  font-size: 0.75rem;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #aab8ca;
+  border-radius: 999px;
+  background: #f2f6fb;
+  padding: 0.38rem 0.7rem;
+  cursor: pointer;
+}
+
+.file-label input {
+  display: none;
+}
+
+.logo-upload {
+  justify-content: flex-start;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-weight: 600;
+}
+
+.sticky-save-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 0.8rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid #c7d6ea;
+  border-radius: 10px;
+  background: rgba(246, 251, 255, 0.97);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 -6px 20px rgba(22, 36, 58, 0.08);
+}
+
+.save-status {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  color: #355377;
+  font-weight: 700;
+}
+
+.save-status.error {
+  color: #8a2f2f;
+}
+
+.save-status.success {
+  color: #1f7044;
+}
+
+.sticky-save-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.preview-wrap {
+  padding: 1rem;
+  overflow: auto;
+}
+
+.paystub[data-design="classic-blue"] {
+  --stub-ink: #132238;
+  --stub-line: #d8e1ee;
+  --stub-rule: #21324a;
+  --stub-bg-a: #ffffff;
+  --stub-bg-b: #f7fafd;
+  --stub-cheque-a: #ebf2fa;
+  --stub-cheque-b: #f2f7ff;
+  --stub-cheque-stripe: rgba(74, 118, 171, 0.06);
+  --stub-heading-font: "Franklin Gothic Medium", "Avenir Next Condensed", sans-serif;
+  --stub-body-font: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.paystub[data-design="executive-charcoal"] {
+  --stub-ink: #1c2330;
+  --stub-line: #d7dce3;
+  --stub-rule: #2b313d;
+  --stub-bg-a: #ffffff;
+  --stub-bg-b: #f6f7fa;
+  --stub-cheque-a: #eceff4;
+  --stub-cheque-b: #f5f7fa;
+  --stub-cheque-stripe: rgba(34, 43, 58, 0.08);
+  --stub-heading-font: "Gill Sans Nova", "Franklin Gothic Medium", sans-serif;
+  --stub-body-font: "Helvetica Neue", "Arial", sans-serif;
+}
+
+.paystub[data-design="northern-mint"] {
+  --stub-ink: #112d29;
+  --stub-line: #cae0dc;
+  --stub-rule: #1f4a43;
+  --stub-bg-a: #fdfefe;
+  --stub-bg-b: #f2faf7;
+  --stub-cheque-a: #e7f5f0;
+  --stub-cheque-b: #eff9f5;
+  --stub-cheque-stripe: rgba(27, 108, 94, 0.09);
+  --stub-heading-font: "Avenir Next Condensed", "Trebuchet MS", sans-serif;
+  --stub-body-font: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.paystub[data-design="prairie-sand"] {
+  --stub-ink: #3a2e20;
+  --stub-line: #e5d7c0;
+  --stub-rule: #5d4730;
+  --stub-bg-a: #fffdfa;
+  --stub-bg-b: #fcf7ef;
+  --stub-cheque-a: #f8efdf;
+  --stub-cheque-b: #fcf5ea;
+  --stub-cheque-stripe: rgba(120, 89, 45, 0.08);
+  --stub-heading-font: "Rockwell", "Avenir Next Condensed", sans-serif;
+  --stub-body-font: "Palatino", "Georgia", serif;
+}
+
+.paystub[data-design="monochrome-ledger"] {
+  --stub-ink: #111111;
+  --stub-line: #d4d4d4;
+  --stub-rule: #1c1c1c;
+  --stub-bg-a: #ffffff;
+  --stub-bg-b: #f6f6f6;
+  --stub-cheque-a: #efefef;
+  --stub-cheque-b: #f8f8f8;
+  --stub-cheque-stripe: rgba(40, 40, 40, 0.08);
+  --stub-heading-font: "Arial Black", "Franklin Gothic Medium", sans-serif;
+  --stub-body-font: "Arial", sans-serif;
+}
+
+.paystub {
+  width: min(100%, 930px);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--stub-ink);
+  font-family: var(--stub-body-font);
+}
+
+.statement {
+  padding: 1.6rem 1.5rem 1rem;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--stub-bg-a) 0,
+    var(--stub-bg-a) 8px,
+    var(--stub-bg-b) 8px,
+    var(--stub-bg-b) 16px
+  );
+}
+
+.statement-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  font-family: "Impact", "Avenir Next", sans-serif;
+  font-size: 2.2rem;
+  color: var(--brand-color);
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.payroll-logo-image {
+  max-width: 220px;
+  max-height: 56px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.brand-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.brand-star {
+  color: var(--warn);
+}
+
+.statement-meta {
+  min-width: 300px;
+}
+
+.statement-meta h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.9rem;
+  font-family: var(--stub-heading-font);
+}
+
+.statement-meta p {
+  margin: 0.14rem 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.statement-meta address {
+  margin-top: 0.9rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.32;
+  white-space: pre-line;
+}
+
+.statement-grid {
+  margin-top: 1.1rem;
+  display: grid;
+  grid-template-columns: 1fr 0.84fr;
+  gap: 1rem;
+}
+
+.slip-block h3 {
+  margin: 0.55rem 0 0.3rem;
+  font-size: 1.55rem;
+  border-bottom: 2px solid var(--stub-rule);
+  font-family: var(--stub-heading-font);
+}
+
+.slip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.98rem;
+}
+
+.slip-table th,
+.slip-table td {
+  border-bottom: 1px solid var(--stub-line);
+  padding: 0.28rem 0.2rem;
+  text-align: right;
+}
+
+.slip-table th:first-child,
+.slip-table td:first-child {
+  text-align: left;
+}
+
+.slip-table .strong-row td {
+  border-top: 2px solid var(--stub-rule);
+  font-weight: 700;
+}
+
+.hours-block {
+  margin-top: 1rem;
+  border-top: 2px solid var(--stub-rule);
+  border-bottom: 2px solid var(--stub-rule);
+  padding: 0.35rem 0;
+}
+
+.hours-block p,
+.deposit-box p {
+  margin: 0.3rem 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.deposit-box {
+  border-bottom: 2px solid var(--stub-rule);
+  padding-bottom: 0.35rem;
+}
+
+.notes {
+  margin-top: 1rem;
+  white-space: pre-line;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.statement-footer {
+  margin-top: 1.1rem;
+}
+
+.strong-line {
+  border-top: 2px solid var(--stub-rule);
+  border-bottom: 2px solid var(--stub-rule);
+  padding: 0.42rem 0;
+  font-size: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.strong-line span {
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.cheque-section {
+  border-top: 2px dashed var(--stub-rule);
+  padding: 1.2rem 1.4rem 1.5rem;
+  background:
+    linear-gradient(180deg, var(--stub-cheque-a) 0%, var(--stub-cheque-b) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 12px,
+      var(--stub-cheque-stripe) 12px,
+      var(--stub-cheque-stripe) 13px
+    );
+}
+
+.cheque-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 700;
+}
+
+.cheque-header .routing {
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
+}
+
+.cheque-body {
+  margin-top: 1rem;
+}
+
+.pay-to {
+  margin: 0 0 0.4rem;
+}
+
+.amount-words {
+  border: 1px solid var(--stub-rule);
+  padding: 0.28rem 0.4rem;
+  margin: 0;
+  min-height: 2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.amount-number {
+  margin: 0;
+  border: 1px solid var(--stub-rule);
+  border-top: 0;
+  text-align: right;
+  padding: 0.28rem 0.4rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.non-negotiable {
+  margin-top: 2.8rem;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+/* Distinct paystub design systems */
+.paystub[data-design="executive-charcoal"] {
+  border: 2px solid #202634;
+  box-shadow: 0 22px 38px rgba(16, 20, 28, 0.2);
+}
+
+.paystub[data-design="executive-charcoal"] .statement {
+  background: linear-gradient(180deg, #f4f6f9 0%, #edf1f6 100%);
+  padding: 1.3rem 1.2rem 0.9rem;
+}
+
+.paystub[data-design="executive-charcoal"] .statement-header {
+  background: #242c3a;
+  border: 1px solid #1a202b;
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  color: #f5f8fc;
+}
+
+.paystub[data-design="executive-charcoal"] .statement-meta h2,
+.paystub[data-design="executive-charcoal"] .statement-meta p strong,
+.paystub[data-design="executive-charcoal"] .statement-meta address {
+  color: #f5f8fc;
+}
+
+.paystub[data-design="executive-charcoal"] .statement-meta p {
+  color: #d6deea;
+}
+
+.paystub[data-design="executive-charcoal"] .statement-grid {
+  gap: 0.8rem;
+}
+
+.paystub[data-design="executive-charcoal"] .slip-block {
+  background: #ffffff;
+  border: 1px solid #c8d1df;
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem 0.5rem;
+}
+
+.paystub[data-design="executive-charcoal"] .slip-table th {
+  background: #2d3647;
+  color: #f7fbff;
+  font-weight: 700;
+}
+
+.paystub[data-design="executive-charcoal"] .cheque-section {
+  background: linear-gradient(180deg, #2a3243 0%, #212737 100%);
+  border-top: 4px solid #6f84a3;
+  color: #edf2fb;
+}
+
+.paystub[data-design="executive-charcoal"] .amount-words,
+.paystub[data-design="executive-charcoal"] .amount-number {
+  border-color: #a6b8d3;
+}
+
+.paystub[data-design="executive-charcoal"] .cheque-header .routing {
+  color: #c7d6ef;
+}
+
+.paystub[data-design="northern-mint"] {
+  border: 1px solid #9fc7bf;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.paystub[data-design="northern-mint"] .statement {
+  background: linear-gradient(160deg, #f7fffc 0%, #e8f7f2 100%);
+  padding: 1.5rem 1.35rem 1.05rem;
+}
+
+.paystub[data-design="northern-mint"] .statement-header {
+  align-items: flex-start;
+}
+
+.paystub[data-design="northern-mint"] .statement-meta h2 {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 1.7rem;
+}
+
+.paystub[data-design="northern-mint"] .slip-block {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #b8dcd4;
+  border-radius: 12px;
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+.paystub[data-design="northern-mint"] .slip-block h3 {
+  border-bottom-style: dashed;
+}
+
+.paystub[data-design="northern-mint"] .slip-table th {
+  background: #e7f7f2;
+  color: #1e5a4f;
+  font-weight: 700;
+}
+
+.paystub[data-design="northern-mint"] .cheque-section {
+  border-top: 2px dotted #2d7a6f;
+  background:
+    linear-gradient(180deg, #e5f4ef 0%, #effaf6 100%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(52, 129, 114, 0.08) 0,
+      rgba(52, 129, 114, 0.08) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+}
+
+.paystub[data-design="northern-mint"] .statement-grid {
+  margin-top: 0.8rem;
+  gap: 0.75rem;
+}
+
+.paystub[data-design="northern-mint"] .slip-table {
+  font-size: 0.92rem;
+}
+
+.paystub[data-design="northern-mint"] .slip-table th,
+.paystub[data-design="northern-mint"] .slip-table td {
+  padding: 0.2rem 0.14rem;
+  white-space: nowrap;
+}
+
+.paystub[data-design="northern-mint"] .notes {
+  margin-top: 0.6rem;
+  line-height: 1.18;
+}
+
+.paystub[data-design="northern-mint"] .strong-line {
+  font-size: 1.08rem;
+  padding: 0.28rem 0;
+}
+
+.paystub[data-design="northern-mint"] .cheque-section {
+  padding: 0.8rem 1rem 0.95rem;
+}
+
+.paystub[data-design="northern-mint"] .amount-words {
+  min-height: 1.4rem;
+  padding: 0.16rem 0.25rem;
+}
+
+.paystub[data-design="northern-mint"] .amount-number {
+  font-size: 1.18rem;
+  padding: 0.16rem 0.25rem;
+}
+
+.paystub[data-design="northern-mint"] .non-negotiable {
+  margin-top: 1.5rem;
+}
+
+.paystub[data-design="prairie-sand"] {
+  border: 1px solid #c7b18f;
+  box-shadow: 0 10px 26px rgba(103, 77, 42, 0.14);
+}
+
+.paystub[data-design="prairie-sand"] .statement {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(150, 120, 74, 0.08) 0%, transparent 44%),
+    linear-gradient(180deg, #fffdf6 0%, #f6f0e3 100%);
+  padding: 1.5rem 1.35rem 1rem;
+}
+
+.paystub[data-design="prairie-sand"] .statement-header {
+  border-bottom: 3px double #7a5e3e;
+  padding-bottom: 0.6rem;
+}
+
+.paystub[data-design="prairie-sand"] .statement-meta h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 1.8rem;
+}
+
+.paystub[data-design="prairie-sand"] .slip-block h3 {
+  font-size: 1.9rem;
+}
+
+.paystub[data-design="prairie-sand"] .slip-table th {
+  font-style: italic;
+}
+
+.paystub[data-design="prairie-sand"] .notes {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.paystub[data-design="prairie-sand"] .cheque-section {
+  border-top: 2px dashed #7a5e3e;
+  background:
+    linear-gradient(180deg, #f2e9d8 0%, #f9f2e4 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(132, 93, 47, 0.1) 0,
+      rgba(132, 93, 47, 0.1) 1px,
+      transparent 1px,
+      transparent 13px
+    );
+}
+
+.paystub[data-design="prairie-sand"] .amount-words,
+.paystub[data-design="prairie-sand"] .amount-number {
+  background: rgba(255, 249, 236, 0.84);
+}
+
+.paystub[data-design="monochrome-ledger"] {
+  border: 2px solid #151515;
+}
+
+.paystub[data-design="monochrome-ledger"] .statement {
+  background: #ffffff;
+  padding: 1.05rem 1.05rem 0.75rem;
+  font-family: "Courier New", monospace;
+}
+
+.paystub[data-design="monochrome-ledger"] .statement-header {
+  border: 2px solid #111111;
+  padding: 0.45rem 0.55rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+.paystub[data-design="monochrome-ledger"] .brand {
+  font-family: "Arial Black", sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.09em;
+}
+
+.paystub[data-design="monochrome-ledger"] .statement-meta h2 {
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 1.3rem;
+}
+
+.paystub[data-design="monochrome-ledger"] .statement-grid {
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.paystub[data-design="monochrome-ledger"] .statement-meta address {
+  margin-top: 0.45rem;
+  line-height: 1.15;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-block {
+  border: 2px solid #111111;
+  padding: 0.25rem 0.4rem 0.45rem;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-block h3 {
+  border-bottom: 2px solid #111111;
+  font-size: 1.02rem;
+  margin: 0.2rem 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-table {
+  font-size: 0.82rem;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-table th {
+  border-bottom: 2px solid #111111;
+  text-transform: uppercase;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-table td {
+  border-bottom: 1px dashed #888888;
+}
+
+.paystub[data-design="monochrome-ledger"] .hours-block,
+.paystub[data-design="monochrome-ledger"] .deposit-box,
+.paystub[data-design="monochrome-ledger"] .strong-line {
+  border-width: 1px;
+}
+
+.paystub[data-design="monochrome-ledger"] .cheque-section {
+  border-top: 3px double #111111;
+  background: #ffffff;
+  padding: 0.85rem 1.05rem 0.95rem;
+  font-family: "Courier New", monospace;
+}
+
+.paystub[data-design="monochrome-ledger"] .amount-words,
+.paystub[data-design="monochrome-ledger"] .amount-number {
+  border-width: 2px;
+}
+
+.paystub[data-design="monochrome-ledger"] .non-negotiable {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  margin-top: 1.4rem;
+}
+
+.paystub[data-design="monochrome-ledger"] .slip-table th,
+.paystub[data-design="monochrome-ledger"] .slip-table td {
+  white-space: nowrap;
+}
+
+.paystub[data-design="monochrome-ledger"] .notes {
+  margin-top: 0.45rem;
+  line-height: 1.14;
+  font-size: 0.84rem;
+}
+
+/* Extra compaction during PDF export for high-density themes */
+.paystub.compact-export[data-design="northern-mint"] .statement {
+  padding: 1.12rem 0.95rem 0.62rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .slip-block {
+  padding: 0.3rem 0.42rem 0.4rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .slip-table {
+  font-size: 0.86rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .slip-table th,
+.paystub.compact-export[data-design="northern-mint"] .slip-table td {
+  padding: 0.16rem 0.1rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .cheque-section {
+  padding: 0.62rem 0.9rem 0.72rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .non-negotiable {
+  margin-top: 1rem;
+}
+
+.paystub.compact-export[data-design="northern-mint"] .amount-words {
+  min-height: 1.2rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .statement {
+  padding: 0.74rem 0.72rem 0.44rem;
+  font-size: 0.9rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .statement-header {
+  padding: 0.24rem 0.34rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .statement-meta h2 {
+  font-size: 0.95rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .statement-meta address {
+  margin-top: 0.32rem;
+  line-height: 1.08;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .slip-block {
+  padding: 0.18rem 0.28rem 0.3rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .slip-block h3 {
+  margin: 0.1rem 0 0.12rem;
+  font-size: 0.94rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .slip-table {
+  font-size: 0.69rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .slip-table th,
+.paystub.compact-export[data-design="monochrome-ledger"] .slip-table td {
+  padding: 0.1rem 0.07rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .notes {
+  margin-top: 0.22rem;
+  font-size: 0.72rem;
+  line-height: 1.06;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .strong-line {
+  padding: 0.12rem 0;
+  font-size: 0.94rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .strong-line span {
+  font-size: 0.82rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .cheque-section {
+  padding: 0.52rem 0.7rem 0.58rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .cheque-body {
+  margin-top: 0.55rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .pay-to {
+  margin-bottom: 0.22rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .amount-words {
+  min-height: 1rem;
+  font-size: 0.79rem;
+  padding: 0.08rem 0.16rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .amount-number {
+  font-size: 0.99rem;
+  padding: 0.08rem 0.16rem;
+}
+
+.paystub.compact-export[data-design="monochrome-ledger"] .non-negotiable {
+  margin-top: 0.72rem;
+  font-size: 0.84rem;
+}
+
+.employment-letter {
+  width: min(100%, 930px);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.letter-page {
+  min-height: 10.35in;
+  padding: 1.05in 0.7in 0.35in;
+  background: #ffffff;
+  font-family: "Helvetica Neue", "Arial", sans-serif;
+  color: #1b2330;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.letter-watermark {
+  position: absolute;
+  width: 54%;
+  max-width: 420px;
+  left: 50%;
+  bottom: 1.5in;
+  transform: translateX(-50%);
+  opacity: 0.05;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.letter-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 68px;
+}
+
+.letter-rule {
+  border-top: 2px solid #b8bec8;
+  margin-top: 0.08rem;
+}
+
+.letterhead-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.letter-logo-image {
+  max-width: 210px;
+  max-height: 60px;
+  object-fit: contain;
+}
+
+.letter-logo {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  font-size: 1.95rem;
+  text-transform: uppercase;
+}
+
+.letter-date {
+  margin: 0.6rem 0 1.2rem;
+  font-size: 1rem;
+}
+
+.letter-salutation {
+  margin: 0 0 0.7rem;
+  font-size: 0.95rem;
+}
+
+.letter-subject {
+  margin: 0 0 0.8rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.letter-body p {
+  margin: 0 0 0.44rem;
+  line-height: 1.42;
+  font-size: 0.96rem;
+}
+
+.letter-signoff {
+  margin-top: 0.95rem;
+}
+
+.letter-signoff p {
+  margin: 0.16rem 0;
+  font-size: 0.97rem;
+}
+
+.letter-footer-rule {
+  margin-top: auto;
+  border-top: 2px solid #b8bec8;
+}
+
+.letter-footer-copy {
+  margin: 0.22rem 0 0;
+  text-align: center;
+  color: #cccccc;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+}
+
+.credit-report {
+  width: min(100%, 210mm);
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #dfe3e8;
+}
+
+.credit-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 14mm 10.8mm 14mm;
+  position: relative;
+  margin: 0 auto;
+  background: #fff;
+  page-break-after: always;
+}
+
+.credit-page:last-child {
+  page-break-after: auto;
+}
+
+.credit-page-break {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.cr-logo-wrap {
+  min-width: 35mm;
+  min-height: 9.5mm;
+  display: flex;
+  align-items: center;
+}
+
+.credit-logo-img {
+  max-width: 34mm;
+  max-height: 9.5mm;
+  object-fit: contain;
+}
+
+.cr-default-logo {
+  margin: 0;
+  font-family: "Arial Black", "Arial", sans-serif;
+  font-size: 6.2mm;
+  letter-spacing: -0.03em;
+  color: #b32035;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.cr-default-logo-small {
+  font-size: 3.35mm;
+}
+
+.cr1-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.cr-company-meta p {
+  margin: 0 0 1mm;
+  text-align: right;
+  font-size: 2.78mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1f1f1f;
+  font-weight: 400;
+}
+
+.cr1-consumer-block {
+  margin-top: 16.2mm;
+}
+
+.cr1-consumer-block p {
+  margin: 0 0 2.7mm;
+  font-size: 2.88mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1f1f1f;
+  font-weight: 400;
+}
+
+.cr1-title-block {
+  margin-top: 18.4mm;
+  text-align: center;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1d1d1d;
+}
+
+.cr1-title-block p {
+  margin: 0;
+  font-size: 5.2mm;
+  line-height: 1.08;
+  font-weight: 600;
+}
+
+.cr1-title-block p:last-child {
+  margin-top: 2.3mm;
+  font-size: 4.95mm;
+}
+
+.cr1-note-block {
+  margin-top: 16.4mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1f1f1f;
+}
+
+.cr1-note-block p {
+  margin: 0;
+  font-size: 2.92mm;
+  font-weight: 400;
+}
+
+.cr1-note-block p:first-child {
+  margin-bottom: 3.5mm;
+}
+
+.cr-page-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6.8mm;
+  text-align: center;
+  font-size: 3.45mm;
+  font-weight: 500;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1f1f1f;
+}
+
+.cr2-topbar {
+  display: grid;
+  grid-template-columns: 32mm 1fr auto;
+  align-items: center;
+  gap: 3.8mm;
+  border-bottom: 0.24mm solid #d0d5dc;
+  padding-bottom: 1.8mm;
+}
+
+.cr2-top-title {
+  margin: 0;
+  text-align: center;
+  font-size: 3.78mm;
+  font-weight: 400;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #232323;
+}
+
+.cr2-top-date {
+  margin: 0;
+  font-size: 3.38mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #232323;
+  font-weight: 400;
+}
+
+.cr-section-title {
+  margin: 2.4mm 0 2.1mm;
+  font-size: 6.45mm;
+  font-weight: 600;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #222222;
+}
+
+.cr-sub-title {
+  margin: 0 0 1.85mm;
+  font-size: 4.62mm;
+  font-weight: 600;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #232323;
+}
+
+.cr-gap-top {
+  margin-top: 8.2mm;
+}
+
+.cr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0 0 2.3mm;
+}
+
+.cr-table th,
+.cr-table td {
+  border: 0.22mm solid #d2d7de;
+  border-left: 0;
+  border-right: 0;
+  padding: 1.95mm 2.2mm;
+  font-size: 3.28mm;
+  color: #232323;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+.cr-table th {
+  background: #f8f9fb;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cr-table-head th {
+  background: #f7f8fa;
+}
+
+.cr-triple-table th,
+.cr-triple-table td {
+  width: 33.333%;
+}
+
+.cr-address-table th:nth-child(1),
+.cr-address-table td:nth-child(1) {
+  width: 9%;
+}
+
+.cr-address-table th:nth-child(2),
+.cr-address-table td:nth-child(2) {
+  width: 17%;
+}
+
+.cr-address-table th:nth-child(3),
+.cr-address-table td:nth-child(3) {
+  width: 30%;
+}
+
+.cr-address-table th:nth-child(4),
+.cr-address-table td:nth-child(4) {
+  width: 13%;
+}
+
+.cr-address-table th:nth-child(5),
+.cr-address-table td:nth-child(5) {
+  width: 9%;
+}
+
+.cr-address-table th:nth-child(6),
+.cr-address-table td:nth-child(6) {
+  width: 22%;
+}
+
+.cr-address-table th {
+  white-space: nowrap;
+}
+
+.cr-score-header {
+  margin-top: 18.4mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.cr-score-header p {
+  margin: 0;
+  font-size: 3.2mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 400;
+}
+
+.cr-score-wrap {
+  margin-top: 5.8mm;
+  display: grid;
+  grid-template-columns: 40mm 1fr;
+  gap: 5mm;
+  align-items: start;
+}
+
+.cr-score-left {
+  padding-top: 10.8mm;
+}
+
+.cr-score-label {
+  margin: 0;
+  font-size: 3.95mm;
+  font-weight: 600;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.cr-score-left-value {
+  display: block;
+  margin-top: 1.4mm;
+  font-size: 3.2mm;
+  font-weight: 400;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.cr-score-right {
+  position: relative;
+}
+
+.cr-score-gradient {
+  position: relative;
+  height: 6.8mm;
+  background: linear-gradient(90deg, #1092c2 0%, #2caae2 40%, #6ac278 60%, #aee246 100%);
+}
+
+.cr-score-marker {
+  position: absolute;
+  top: -7.2mm;
+  left: 69%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 3.28mm;
+  font-weight: 600;
+  color: #121212;
+}
+
+.cr-score-marker::after {
+  content: "▼";
+  display: block;
+  font-size: 2.25mm;
+  line-height: 1;
+  margin-top: 0.35mm;
+}
+
+.cr-score-bands {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.cr-score-bands > div {
+  border: 0.22mm solid #d2d7de;
+  border-top: 0;
+  border-bottom: 0;
+  padding: 2.2mm 1.35mm 2.45mm;
+  text-align: center;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.cr-score-bands strong {
+  display: block;
+  font-size: 4.25mm;
+  margin-bottom: 0.72mm;
+  font-weight: 600;
+}
+
+.cr-score-bands span {
+  display: block;
+  font-size: 3.32mm;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.cr-disclaimer {
+  margin-top: 9.2mm;
+  margin-bottom: 1.2mm;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.cr-disclaimer p {
+  margin: 0 0 2.15mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #2a2a2a;
+  font-size: 2.88mm;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+.credit-report.has-uploaded-logo .cr-default-logo {
+  display: none;
+}
+
+.noa-report {
+  width: min(100%, 210mm);
+  margin: 0 auto;
+  background: #e0e0e0;
+  border: 1px solid #dfe3e8;
+}
+
+.noa-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 0;
+  position: relative;
+  margin: 0 auto;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+  page-break-after: always;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.noa-page + .noa-page {
+  margin-top: 10mm;
+}
+
+.noa-page:last-child {
+  page-break-after: auto;
+}
+
+.noa-page-break {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.noa-page-one {
+  padding: 9.4mm 13.4mm 8.8mm;
+}
+
+.noa-page-two {
+  padding: 9.8mm 13.4mm 10.2mm;
+}
+
+.noa-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.noa-cra-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.4mm;
+}
+
+.noa-cra-text {
+  font-size: 3.35mm;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.noa-cra-logo {
+  width: 9.6mm;
+  height: auto;
+  display: block;
+  margin-top: 0.3mm;
+}
+
+.noa-cra-label {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0 4mm;
+  font-size: 2.55mm;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.noa-page-meta {
+  text-align: right;
+}
+
+.noa-page-meta p {
+  margin: 0 0 0.9mm;
+  font-size: 3.35mm;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.noa-page-meta p:last-child {
+  font-size: 2.15mm;
+  font-weight: 500;
+}
+
+.noa-top-location {
+  margin: 6.4mm 0 0;
+  font-size: 2.45mm;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.noa-top-account-code {
+  margin: 6.5mm 0 0 36.6mm;
+  font-size: 2.05mm;
+  font-weight: 500;
+}
+
+.noa-notice-details {
+  width: 94.6mm;
+}
+
+.noa-notice-details h3 {
+  margin: 0 0 1.5mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 6mm;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.noa-notice-details p {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 31mm;
+  gap: 1.4mm;
+  align-items: baseline;
+  border-bottom: 0.22mm solid #353535;
+  padding: 0.62mm 0 0.55mm;
+  font-size: 2.45mm;
+  line-height: 1.08;
+}
+
+.noa-notice-details p span {
+  font-weight: 700;
+}
+
+.noa-notice-details p strong {
+  font-weight: 500;
+  text-align: right;
+}
+
+.noa-notice-details .noa-zk {
+  border-bottom: 0;
+  display: block;
+  text-align: right;
+  padding-top: 1.6mm;
+  font-size: 1.95mm;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.noa-notice-details-1 {
+  position: absolute;
+  top: 22.4mm;
+  right: 13.4mm;
+}
+
+.noa-mailing {
+  position: absolute;
+  left: 13.4mm;
+  top: 51.6mm;
+  margin: 0;
+  width: 78mm;
+}
+
+.noa-mailing p {
+  margin: 0;
+  font-size: 3.95mm;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  white-space: pre-line;
+}
+
+.noa-assessment-intro {
+  position: absolute;
+  left: 13.4mm;
+  top: 113.4mm;
+  width: 146mm;
+}
+
+.noa-assessment-intro h2 {
+  margin: 0 0 4mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8.4mm;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.03;
+}
+
+.noa-assessment-intro p {
+  margin: 0 0 4.4mm;
+  font-size: 4.15mm;
+  line-height: 1.22;
+  max-width: 136mm;
+}
+
+.noa-account-summary {
+  position: absolute;
+  left: 13.4mm;
+  right: 23.5mm;
+  bottom: 16.3mm;
+  border: 0.24mm solid #4a4a4a;
+  padding: 4.2mm 3.8mm 3.9mm;
+  display: grid;
+  grid-template-columns: 1fr 83.2mm;
+  gap: 4.3mm;
+}
+
+.noa-account-left h3 {
+  margin: 0 0 2.6mm;
+  font-size: 6.2mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.noa-account-left p {
+  margin: 0 0 2.8mm;
+  font-size: 3.7mm;
+  line-height: 1.18;
+  max-width: 66mm;
+}
+
+.noa-refund-line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2.2mm;
+  align-items: baseline;
+  font-size: 4.75mm;
+  margin-top: 1.8mm;
+}
+
+.noa-refund-line strong {
+  font-size: 6mm;
+  font-weight: 700;
+}
+
+.noa-refund-line span {
+  justify-self: end;
+}
+
+.noa-account-right {
+  border: 0.22mm solid #5a5a5a;
+  padding: 3.9mm 3.2mm;
+}
+
+.noa-account-right h4 {
+  margin: 0 0 2.2mm;
+  font-size: 6.45mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.02;
+}
+
+.noa-account-right p,
+.noa-account-right li {
+  margin: 0;
+  font-size: 3.28mm;
+  line-height: 1.16;
+  font-weight: 400;
+}
+
+.noa-account-right ol {
+  margin: 1.2mm 0 0;
+  padding-left: 3.7mm;
+}
+
+.noa-edge-marks {
+  position: absolute;
+  right: 8.3mm;
+  bottom: 16.7mm;
+  display: flex;
+  flex-direction: column;
+  gap: 3.95mm;
+}
+
+.noa-edge-marks span {
+  display: block;
+  width: 8.5mm;
+  height: 0.45mm;
+  background: #1f1f1f;
+}
+
+.noa-footer-code {
+  position: absolute;
+  left: 13.4mm;
+  bottom: 13.1mm;
+  margin: 0;
+  font-size: 1.95mm;
+  line-height: 1;
+}
+
+.noa-canada-wordmark {
+  position: absolute;
+  right: 13.2mm;
+  bottom: 5.5mm;
+  width: 30mm;
+  height: auto;
+  display: block;
+}
+
+.noa-page-meta-right {
+  margin-bottom: 0;
+}
+
+.noa-mailing-top {
+  top: 31.6mm;
+  width: 71mm;
+}
+
+.noa-notice-details-2 {
+  position: absolute;
+  top: 25.4mm;
+  right: 13.4mm;
+}
+
+.noa-tax-assessment {
+  position: absolute;
+  left: 13.4mm;
+  right: 13.4mm;
+  top: 56.4mm;
+}
+
+.noa-tax-assessment h2 {
+  margin: 0 0 3.6mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8.5mm;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.04;
+}
+
+.noa-tax-assessment p {
+  margin: 0 0 3.4mm;
+  max-width: 159mm;
+  font-size: 3.82mm;
+  line-height: 1.18;
+  font-weight: 400;
+}
+
+.noa-summary {
+  position: absolute;
+  left: 13.4mm;
+  right: 13.4mm;
+  top: 114mm;
+}
+
+.noa-summary h3 {
+  margin: 0 0 1.1mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 6.25mm;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.03;
+}
+
+.noa-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 4.12mm;
+  line-height: 1.1;
+}
+
+.noa-summary-table thead th {
+  text-align: left;
+  font-size: 3.72mm;
+  border-top: 0.24mm solid #2e2e2e;
+  border-bottom: 0.24mm solid #2e2e2e;
+  padding: 0.85mm 1mm 0.75mm;
+  font-weight: 600;
+}
+
+.noa-summary-table th:nth-child(1) { width: 13%; }
+.noa-summary-table th:nth-child(2) { width: 52%; }
+.noa-summary-table th:nth-child(3) { width: 25%; text-align: right; }
+.noa-summary-table th:nth-child(4) { width: 10%; text-align: center; }
+
+.noa-summary-table tbody td {
+  padding: 0.52mm 1mm 0.44mm;
+  border: 0;
+  vertical-align: top;
+  font-size: 4mm;
+  font-weight: 400;
+}
+
+.noa-summary-table tbody td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.noa-summary-table tbody td:nth-child(4) {
+  text-align: center;
+}
+
+.noa-direct-deposit-row td {
+  border-top: 0.24mm solid #1f1f1f !important;
+  border-bottom: 0.24mm solid #1f1f1f !important;
+  padding: 0.75mm 1mm 0.64mm !important;
+  font-size: 4mm !important;
+  font-weight: 700;
+}
+
+.noa-direct-deposit-row td:first-child {
+  border-left: 0.24mm solid #1f1f1f !important;
+}
+
+.noa-direct-deposit-row td:last-child {
+  border-right: 0.24mm solid #1f1f1f !important;
+}
+
+.noa-explanation {
+  position: absolute;
+  left: 13.4mm;
+  right: 13.4mm;
+  top: 236.8mm;
+}
+
+.noa-explanation h3 {
+  margin: 0 0 2.4mm;
+  font-size: 7.15mm;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.03;
+}
+
+.noa-explanation p {
+  margin: 0 0 2mm;
+  font-size: 4.2mm;
+  line-height: 1.22;
+  max-width: 169mm;
+  font-weight: 400;
+}
+
+.statement-report {
+  width: min(100%, 215.9mm);
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #dfe3e8;
+}
+
+.statement-page {
+  width: 215.9mm;
+  height: 279.4mm;
+  padding: 10.5mm 9.6mm 8.5mm;
+  position: relative;
+  margin: 0 auto;
+  background: #fff;
+  color: #1d1d1d;
+  font-family: Arial, Helvetica, sans-serif;
+  page-break-after: always;
+}
+
+.statement-page:last-child {
+  page-break-after: auto;
+}
+
+.statement-page-break {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.statement-headline {
+  display: grid;
+  grid-template-columns: 17mm 1fr 44mm;
+  align-items: start;
+  gap: 2.7mm;
+}
+
+.statement-bank-logo {
+  width: 14.4mm;
+  height: 14.4mm;
+  object-fit: contain;
+}
+
+.statement-branch-address {
+  margin: 0;
+  padding-top: 2mm;
+  font-size: 2.95mm;
+  line-height: 1.08;
+  white-space: pre-line;
+  text-align: center;
+  justify-self: center;
+  width: fit-content;
+  max-width: 66mm;
+}
+
+.statement-bank-meta {
+  text-align: left;
+  font-size: 2.48mm;
+  line-height: 1.2;
+}
+
+.statement-bank-meta p {
+  margin: 0 0 0.6mm;
+}
+
+.statement-bank-name {
+  text-align: right;
+  font-size: 5.2mm;
+  font-weight: 700;
+  margin-bottom: 4.6mm;
+  color: #1b362f;
+}
+
+.statement-customer {
+  margin-top: 11.5mm;
+}
+
+.statement-ref-row {
+  margin: 0 0 4.4mm;
+  font-size: 2.45mm;
+  letter-spacing: 0.04em;
+}
+
+.statement-ref-row strong {
+  letter-spacing: 0.02em;
+  font-size: 4.8mm;
+  margin-left: 2.2mm;
+}
+
+.statement-customer p {
+  margin: 0;
+  font-size: 3.7mm;
+  line-height: 1.12;
+}
+
+.statement-cards {
+  margin-top: 8.8mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10mm;
+}
+
+.statement-card {
+  border: 0.34mm solid #353535;
+}
+
+.statement-card h4 {
+  margin: 0;
+  border-bottom: 0.28mm solid #353535;
+  background: repeating-linear-gradient(
+    0deg,
+    #e7e7e7 0,
+    #e7e7e7 0.55mm,
+    #dbdbdb 0.55mm,
+    #dbdbdb 1.1mm
+  );
+  text-align: center;
+  font-size: 3.05mm;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.statement-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.statement-card-grid p {
+  margin: 0;
+  border-right: 0.22mm solid #353535;
+}
+
+.statement-card-grid p:last-child {
+  border-right: 0;
+}
+
+.statement-card-grid span {
+  display: block;
+  border-bottom: 0.22mm solid #353535;
+  text-align: center;
+  font-size: 2.85mm;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.statement-card-grid strong {
+  display: block;
+  text-align: center;
+  padding: 1.7mm 0;
+  font-size: 3.45mm;
+  font-weight: 700;
+}
+
+.statement-account-type {
+  margin: 0;
+  text-align: center;
+  font-size: 5.2mm;
+  padding: 5.2mm 0 4.8mm;
+  font-weight: 700;
+}
+
+.statement-from-to {
+  margin: 0;
+  border-bottom: 0.22mm solid #353535;
+  text-align: center;
+  padding: 1.7mm 0;
+  font-size: 3.45mm;
+  font-weight: 700;
+}
+
+.statement-page-count {
+  margin: 0;
+  text-align: center;
+  padding: 1.9mm 0;
+  font-size: 3.35mm;
+  font-weight: 700;
+}
+
+.statement-ledger {
+  margin-top: 1.5mm;
+  width: 100%;
+  border-collapse: collapse;
+  border: 0.34mm solid #2f2f2f;
+  font-size: 2.55mm;
+  line-height: 1.08;
+}
+
+.statement-ledger th,
+.statement-ledger td {
+  padding: 0.45mm 0.85mm;
+  border-right: 0.22mm solid #2f2f2f;
+  font-weight: 400;
+}
+
+.statement-ledger th:last-child,
+.statement-ledger td:last-child {
+  border-right: 0;
+}
+
+.statement-ledger thead th {
+  border-bottom: 0.22mm solid #2f2f2f;
+  text-align: center;
+  font-weight: 700;
+  font-size: 3.05mm;
+  line-height: 1.25;
+  background: repeating-linear-gradient(
+    0deg,
+    #ececec 0,
+    #ececec 0.45mm,
+    #e4e4e4 0.45mm,
+    #e4e4e4 0.9mm
+  );
+}
+
+.statement-ledger tbody td {
+  border-top: 0;
+}
+
+.statement-ledger tbody tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+.statement-ledger td:nth-child(1) {
+  width: 37%;
+  text-transform: uppercase;
+}
+
+.statement-ledger td:nth-child(2),
+.statement-ledger td:nth-child(3),
+.statement-ledger td:nth-child(5) {
+  width: 18%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.statement-ledger td:nth-child(4) {
+  width: 9%;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.statement-ledger tfoot td {
+  border-top: 0.22mm solid #2f2f2f;
+  font-weight: 700;
+  background: #fff;
+  padding-top: 0.85mm;
+  padding-bottom: 0.8mm;
+}
+
+.statement-fees {
+  margin-top: 2.1mm;
+}
+
+.statement-fees table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 0.34mm solid #2f2f2f;
+  font-size: 2.85mm;
+}
+
+.statement-fees th,
+.statement-fees td {
+  border-right: 0.22mm solid #2f2f2f;
+  border-top: 0.22mm solid #2f2f2f;
+  padding: 0.8mm 1mm;
+  vertical-align: top;
+  font-weight: 400;
+}
+
+.statement-fees th:last-child,
+.statement-fees td:last-child {
+  border-right: 0;
+}
+
+.statement-fees thead th {
+  border-top: 0;
+  text-align: center;
+  font-size: 3.05mm;
+  font-weight: 700;
+  background: #efefef;
+}
+
+.statement-fees tfoot td {
+  text-align: right;
+  font-weight: 700;
+  font-size: 2.95mm;
+}
+
+.statement-footer-note {
+  margin-top: 2mm;
+  border: 0.3mm solid #2f2f2f;
+  padding: 1.2mm 1.4mm;
+}
+
+.statement-footer-note p {
+  margin: 0 0 0.9mm;
+  font-size: 2.48mm;
+  line-height: 1.22;
+}
+
+.statement-footer-note p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1120px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .controls {
+    max-height: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .statement-header,
+  .statement-grid,
+  .cheque-header,
+  .non-negotiable {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .statement-meta {
+    min-width: 0;
+  }
+
+  .statement-meta h2 {
+    font-size: 1.5rem;
+  }
+
+  .slip-block h3 {
+    font-size: 1.1rem;
+  }
+
+  .template-row,
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .letter-page {
+    min-height: auto;
+    padding: 1rem;
+  }
+
+  .credit-page {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 210 / 297;
+    padding: 6vw 5vw 10vw;
+  }
+
+  .credit-report,
+  .statement-report {
+    width: 100%;
+  }
+
+  .statement-page {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 215.9 / 279.4;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .no-print,
+  .topbar {
+    display: none !important;
+  }
+
+  .layout {
+    display: block;
+    padding: 0;
+  }
+
+  .panel {
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .preview-wrap {
+    padding: 0;
+  }
+
+  .paystub {
+    width: 100%;
+    border: 0;
+  }
+
+  .employment-letter {
+    width: 100%;
+    border: 0;
+  }
+
+  .statement,
+  .cheque-section,
+  .letter-page,
+  .credit-page,
+  .noa-page,
+  .statement-page {
+    break-inside: avoid;
+  }
+
+  .credit-report,
+  .noa-report {
+    width: 210mm;
+    border: 0;
+  }
+
+  .statement-report {
+    width: 215.9mm;
+    border: 0;
+  }
+
+  .scotia-report {
+    width: 100%;
+  }
+
+  .scotia-page {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 215.9 / 279.4;
+  }
+
+}
+
+.scotia-report {
+  width: min(100%, 8.5in);
+  margin: 0 auto;
+  background: #fff;
+}
+
+.scotia-page {
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.5in 0.6in 0.5in 0.75in;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+  color: #000;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.scotia-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.15in;
+}
+
+.scotia-logo {
+  width: 180px;
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.scotia-banner {
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11pt;
+  padding: 0.18in 0.35in;
+  letter-spacing: 0.02em;
+  flex: 1;
+  margin-left: 0.18in;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.scotia-barcode-wrap {
+  position: absolute;
+  left: 0.34in;
+  top: 2.6in;
+  pointer-events: none;
+}
+
+.scotia-barcode-svg {
+  display: block;
+  width: 1.93in;
+  height: 0.38in;
+  transform-origin: top left;
+  transform: rotate(90deg);
+}
+
+.scotia-branch-info {
+  font-size: 8pt;
+  white-space: pre-line;
+  line-height: 1.35;
+  margin-bottom: 0.08in;
+  color: #222;
+}
+
+.scotia-ref-line {
+  font-family: "Courier New", monospace;
+  font-size: 7pt;
+  color: #555;
+  margin: 0 0 0.12in;
+}
+
+.scotia-customer-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4in;
+  margin-bottom: 0.2in;
+}
+
+.scotia-customer-left {
+  flex: 1;
+}
+
+.scotia-customer-name {
+  font-weight: 700;
+  font-size: 10pt;
+  margin: 0 0 0.04in;
+}
+
+.scotia-customer-address {
+  white-space: pre-line;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.scotia-account-info {
+  min-width: 2.2in;
+  font-size: 8.5pt;
+  border: 1px solid #ccc;
+  padding: 0.1in 0.15in;
+}
+
+.scotia-account-info p {
+  margin: 0.02in 0;
+}
+
+.scotia-small {
+  font-size: 7.5pt;
+  color: #444;
+}
+
+.scotia-summary {
+  margin: 0.15in 0 0.2in;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  padding: 0.08in 0;
+}
+
+.scotia-summary h3 {
+  font-size: 10pt;
+  margin: 0 0 0.06in;
+  font-weight: 700;
+}
+
+.scotia-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.02in 0;
+  font-size: 9pt;
+}
+
+.scotia-indent {
+  padding-left: 0.3in;
+}
+
+.scotia-bold {
+  font-weight: 700;
+}
+
+.scotia-section-title {
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0.12in 0 0.08in;
+}
+
+.scotia-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.scotia-ledger th {
+  text-align: left;
+  font-weight: 700;
+  font-size: 8pt;
+  padding: 0.04in 0.06in;
+  border-bottom: 1.5px solid #000;
+}
+
+.scotia-ledger th:nth-child(3),
+.scotia-ledger th:nth-child(4),
+.scotia-ledger th:nth-child(5) {
+  text-align: right;
+}
+
+.scotia-ledger td {
+  padding: 0.03in 0.06in;
+  vertical-align: top;
+  border-bottom: 1px dotted #aaa;
+}
+
+.scotia-ledger td:first-child {
+  width: 60px;
+}
+
+.scotia-ledger td:nth-child(2) {
+  width: 40%;
+}
+
+.scotia-ledger td:nth-child(3),
+.scotia-ledger td:nth-child(4),
+.scotia-ledger td:nth-child(5) {
+  text-align: right;
+  width: 18%;
+}
+
+.scotia-ledger td.sc-desc .sc-desc-type {
+  font-weight: 700;
+  display: block;
+}
+
+.scotia-ledger td.sc-desc .sc-desc-detail {
+  display: block;
+  font-weight: 400;
+  font-size: 7.5pt;
+  color: #333;
+}
+
+.scotia-ledger tr.sc-opening-row td {
+  font-weight: 700;
+  border-bottom: 1px solid #000;
+}
+
+.scotia-continued {
+  text-align: center;
+  font-size: 8.5pt;
+  margin: 0.15in 0 0;
+  color: #333;
+}
+
+.scotia-page-number {
+  text-align: right;
+  font-size: 8pt;
+  margin: 0.1in 0 0;
+  color: #555;
+}
+
+.scotia-margin-text {
+  position: absolute;
+  left: 0.12in;
+  top: 50%;
+  transform: rotate(-90deg) translateX(-50%);
+  transform-origin: left center;
+  font-family: "Courier New", monospace;
+  font-size: 6pt;
+  color: #999;
+  white-space: nowrap;
+}
+
+.scotia-page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+.scotia-page2-info {
+  font-size: 8.5pt;
+  margin-bottom: 0.1in;
+  color: #222;
+}
+
+.cibc-report {
+  width: min(100%, 8.5in);
+  background: #fff;
+  border: 1px solid #ddd;
+  margin: 0 auto;
+}
+
+.cibc-page {
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.6in 0.75in;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+  color: #000;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cibc-logo {
+  max-width: 150px;
+  display: block;
+  margin-bottom: 0.1in;
+}
+
+.cibc-title {
+  font-weight: bold;
+  font-size: 1.3rem;
+  margin: 0.1in 0 0.2in 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.cibc-top-section {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.15in;
+}
+
+.cibc-customer-info {
+  flex: 1;
+}
+
+.cibc-customer-name {
+  font-weight: bold;
+  margin: 0 0 2px 0;
+}
+
+.cibc-customer-address {
+  white-space: pre-line;
+  margin: 0;
+}
+
+.cibc-statement-info {
+  text-align: right;
+  font-size: 9pt;
+}
+
+.cibc-statement-info p {
+  margin: 0 0 2px 0;
+}
+
+.cibc-disclaimer-text {
+  font-size: 7.5pt;
+  color: #666;
+  margin: 0.1in 0 0.2in 0;
+  max-width: 5in;
+  line-height: 1.3;
+}
+
+.cibc-summary-area {
+  display: flex;
+  gap: 0.4in;
+  margin-bottom: 0.25in;
+}
+
+.cibc-account-summary {
+  flex: 1;
+}
+
+.cibc-account-summary h3 {
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 0 0 0.08in 0;
+}
+
+.cibc-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-size: 9pt;
+}
+
+.cibc-indent {
+  padding-left: 0.2in;
+}
+
+.cibc-bold {
+  font-weight: bold;
+}
+
+.cibc-contact-box {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 0.15in;
+  width: 2.6in;
+  font-size: 8pt;
+  flex-shrink: 0;
+}
+
+.cibc-contact-box h4 {
+  font-size: 9pt;
+  font-weight: bold;
+  margin: 0 0 0.06in 0;
+}
+
+.cibc-contact-box p {
+  margin: 0 0 3px 0;
+}
+
+.cibc-contact-phone {
+  font-weight: bold;
+  font-size: 10pt;
+}
+
+.cibc-contact-desc {
+  font-size: 7.5pt;
+  color: #444;
+}
+
+.cibc-section-heading {
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 0.15in 0 0.08in 0;
+}
+
+.cibc-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.cibc-ledger thead th {
+  text-align: left;
+  font-weight: bold;
+  padding: 4px 6px;
+  border-bottom: 2px solid #000;
+  font-size: 8.5pt;
+}
+
+.cibc-ledger thead th:nth-child(3),
+.cibc-ledger thead th:nth-child(4),
+.cibc-ledger thead th:nth-child(5) {
+  text-align: right;
+}
+
+.cibc-ledger td {
+  padding: 3px 6px;
+  border-bottom: 1px dotted #ccc;
+  vertical-align: top;
+}
+
+.cibc-ledger td:first-child {
+  width: 0.6in;
+}
+
+.cibc-ledger .cb-desc {
+  line-height: 1.4;
+}
+
+.cibc-ledger .cb-desc-type {
+  display: block;
+}
+
+.cibc-ledger .cb-desc-detail {
+  display: block;
+  font-size: 7.5pt;
+  color: #333;
+  white-space: pre-line;
+}
+
+.cibc-ledger .cb-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cibc-ledger .cb-opening-row td,
+.cibc-ledger .cb-closing-row td {
+  font-weight: bold;
+  border-bottom: none;
+}
+
+.cibc-continued {
+  text-align: right;
+  font-size: 8pt;
+  margin: 0.1in 0;
+}
+
+.cibc-page-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7.5pt;
+  color: #666;
+  position: absolute;
+  bottom: 0.5in;
+  left: 0.75in;
+  right: 0.75in;
+}
+
+.cibc-footer-disclaimer {
+  font-size: 7.5pt;
+  color: #333;
+  margin-top: 0.3in;
+  line-height: 1.4;
+}
+
+.cibc-footer-disclaimer p {
+  margin: 0 0 0.06in 0;
+}
+
+.cibc-footer-disclaimer ul {
+  margin: 0.04in 0 0.08in 0.2in;
+  padding: 0;
+}
+
+.cibc-footer-disclaimer li {
+  margin-bottom: 0.03in;
+}
+
+.cibc-trademark {
+  font-size: 7pt;
+  color: #666;
+  margin-top: 0.1in;
+}
+
+.cibc-page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+.cibc-page2-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.15in;
+}
+
+.cibc-page2-title {
+  font-weight: bold;
+  font-size: 1.3rem;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.rbc-report {
+  width: min(100%, 8.5in);
+  margin: 0 auto;
+  background: #fff;
+}
+
+.rbc-page {
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.5in 0.6in;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+  color: #222;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.rbc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.15in;
+  padding-bottom: 0.1in;
+}
+
+.rbc-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.1in;
+}
+
+.rbc-logo {
+  width: 60px;
+  height: auto;
+}
+
+.rbc-bank-address {
+  font-size: 7.5pt;
+  color: #333;
+  white-space: pre-line;
+  line-height: 1.4;
+}
+
+.rbc-header-right {
+  text-align: right;
+}
+
+.rbc-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.8rem;
+  color: #000;
+  line-height: 1.2;
+  margin-bottom: 0.05in;
+}
+
+.rbc-date-range {
+  font-size: 9pt;
+  color: #333;
+  text-align: right;
+}
+
+.rbc-ref-line {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 7pt;
+  color: #666;
+  margin-bottom: 0.1in;
+}
+
+.rbc-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.15in;
+}
+
+.rbc-customer-block {
+  flex: 1;
+}
+
+.rbc-customer-name {
+  font-weight: bold;
+  font-size: 10pt;
+  margin: 0 0 0.03in 0;
+}
+
+.rbc-customer-address {
+  font-size: 9pt;
+  white-space: pre-line;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.rbc-account-box {
+  border-top: 2px solid #003168;
+  padding: 0.08in 0;
+  font-size: 8.5pt;
+  max-width: 3in;
+}
+
+.rbc-account-box p {
+  margin: 0 0 0.04in 0;
+}
+
+.rbc-contact-info {
+  font-size: 7.5pt;
+  color: #555;
+  line-height: 1.4;
+}
+
+.rbc-summary-area {
+  display: flex;
+  gap: 0.2in;
+  margin-bottom: 0.15in;
+}
+
+.rbc-summary {
+  flex: 1;
+}
+
+.rbc-summary-heading {
+  color: #000;
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 0 0 0.08in 0;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.04in;
+}
+
+.rbc-account-detail {
+  margin: 0.04in 0;
+  font-size: 9pt;
+}
+
+.rbc-branch-detail {
+  font-size: 8pt;
+  color: #555;
+  white-space: pre-line;
+  margin: 0 0 0.08in 0;
+  line-height: 1.3;
+}
+
+.rbc-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.02in 0;
+  font-size: 9pt;
+}
+
+.rbc-indent {
+  padding-left: 0;
+}
+
+.rbc-bold {
+  font-weight: bold;
+  border-top: 1px solid #000;
+  margin-top: 0.03in;
+  padding-top: 0.04in;
+}
+
+.rbc-paperless-box {
+  width: 2.8in;
+  border: 1.5px solid #000;
+  padding: 0.1in 0.12in;
+  font-size: 7.5pt;
+  align-self: flex-start;
+}
+
+.rbc-paperless-title {
+  font-weight: bold;
+  font-style: italic;
+  color: #000;
+  margin: 0 0 0.04in 0;
+  font-size: 9pt;
+}
+
+.rbc-paperless-text {
+  font-style: italic;
+  color: #333;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.rbc-section-heading {
+  font-weight: bold;
+  font-size: 11pt;
+  color: #000;
+  border-bottom: 1.5px solid #000;
+  padding-bottom: 0.04in;
+  margin: 0.15in 0 0.08in 0;
+}
+
+.rbc-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.rbc-ledger thead {
+  background: none;
+  color: #000;
+}
+
+.rbc-ledger thead th {
+  padding: 0.04in 0.08in;
+  text-align: left;
+  font-weight: bold;
+  font-size: 8pt;
+  border-bottom: 1.5px solid #000;
+}
+
+.rbc-ledger thead th:nth-child(3),
+.rbc-ledger thead th:nth-child(4),
+.rbc-ledger thead th:nth-child(5) {
+  text-align: right;
+}
+
+.rbc-ledger td {
+  padding: 0.04in 0.08in;
+  border-bottom: 1px solid #e0e0e0;
+  vertical-align: top;
+}
+
+.rbc-ledger td.rb-amount {
+  text-align: right;
+}
+
+.rbc-ledger .rb-opening-row td {
+  font-weight: bold;
+  border-bottom: 1px solid #ccc;
+}
+
+.rbc-page-number {
+  position: absolute;
+  bottom: 0.4in;
+  right: 0.6in;
+  font-size: 8pt;
+  color: #666;
+}
+
+.rbc-page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+.noa-zk-code {
+  position: absolute;
+  right: 13.4mm;
+  top: 67.4mm;
+  font-size: 1.95mm;
+  font-weight: 500;
+}
+
+.noa-thankyou {
+  margin-top: 5.5mm !important;
+}
+
+.noa-commissioner {
+  font-weight: 400;
+  white-space: pre-line;
+}
+
+.t4-input-group {
+  margin-bottom: 0.8rem;
+  padding: 0.75rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.t4-input-group h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #243652;
+}
+
+.t4-input-group .hint {
+  margin-bottom: 0.65rem;
+}
+
+.t4-auto-fields {
+  background: #f5f7fb;
+}
+
+#t4Controls input.readonly,
+#t4Controls input[readonly] {
+  background: #eef3fa;
+  color: #495a73;
+  border-color: #c8d4e4;
+}
+
+#t4Controls .t4-check-label {
+  justify-content: flex-start;
+}
+
+#t4Controls input.t4-checkbox {
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  margin-top: 0.1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  align-self: flex-start;
+  accent-color: #1082c3;
+}
+
+.t4-report {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem;
+  background: #eef1f6;
+}
+
+.t4-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 1700 / 2200;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.t4-bg-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.t4-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.t4-text {
+  position: absolute;
+  color: #111;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.t4-text.t4-right {
+  text-align: right;
+}
+
+.t4-text.t4-center {
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .t4-report,
+  .bmo-void-report,
+  .scotia-void-report,
+  .rbc-void-report,
+  .td-void-report,
+  .cibc-void-report {
+    width: 100%;
+  }
+
+  .t4-page,
+  .bmo-void-page,
+  .scotia-void-page,
+  .rbc-void-page,
+  .td-void-page,
+  .cibc-void-page {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 215.9 / 279.4;
+  }
+}
+
+@media print {
+  .t4-page,
+  .bmo-void-page,
+  .scotia-void-page,
+  .rbc-void-page,
+  .td-void-page,
+  .cibc-void-page {
+    break-inside: avoid;
+  }
+
+  .t4-report {
+    width: 215.9mm;
+    border: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .bmo-void-report,
+  .scotia-void-report,
+  .rbc-void-report,
+  .td-void-report,
+  .cibc-void-report {
+    width: 215.9mm;
+    border: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .t4-page,
+  .bmo-void-page,
+  .scotia-void-page,
+  .rbc-void-page,
+  .td-void-page,
+  .cibc-void-page {
+    width: 215.9mm;
+    height: 279.4mm;
+    box-shadow: none;
+  }
+}
+
+.bmo-void-report,
+.scotia-void-report,
+.rbc-void-report,
+.td-void-report,
+.cibc-void-report {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem;
+  background: #eef1f6;
+}
+
+.bmo-void-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 2550 / 3300;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.scotia-void-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 2479 / 3508;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.rbc-void-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 2595 / 3407;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.td-void-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 2550 / 3300;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.cibc-void-page {
+  position: relative;
+  width: min(100%, 8.5in);
+  aspect-ratio: 2550 / 3300;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
+  overflow: hidden;
+}
+
+.bmo-void-bg-image,
+.scotia-void-bg-image,
+.rbc-void-bg-image,
+.td-void-bg-image,
+.cibc-void-bg-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bmo-void-overlay,
+.scotia-void-overlay,
+.rbc-void-overlay,
+.td-void-overlay,
+.cibc-void-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.bmo-void-text {
+  position: absolute;
+  color: #111;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.scotia-void-text {
+  position: absolute;
+  color: #111;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.rbc-void-text {
+  position: absolute;
+  color: #2954a6;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.td-void-text {
+  position: absolute;
+  color: #111;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.cibc-void-text {
+  position: absolute;
+  color: #111;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.05;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+}
+
+.bmo-void-text.bmo-right { text-align: right; }
+.bmo-void-text.bmo-center { text-align: center; }
+.scotia-void-text.scotia-right { text-align: right; }
+.scotia-void-text.scotia-center { text-align: center; }
+.rbc-void-text.rbc-right { text-align: right; }
+.rbc-void-text.rbc-center { text-align: center; }
+.td-void-text.td-right { text-align: right; }
+.td-void-text.td-center { text-align: center; }
+.cibc-void-text.cibc-right { text-align: right; }
+.cibc-void-text.cibc-center { text-align: center; }

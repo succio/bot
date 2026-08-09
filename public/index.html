@@ -1,0 +1,1716 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>replicas.live</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      async function checkSession() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          window.location.href = "/login.html";
+          return;
+        }
+        try {
+          const res = await fetch("/api/check-session", {
+            method: "GET",
+            headers: { "Authorization": "Bearer " + token }
+          });
+          if (!res.ok) {
+            localStorage.removeItem('token');
+            window.location.href = "/login.html";
+            return;
+          }
+          const data = await res.json();
+          if (!data.authenticated) {
+            localStorage.removeItem('token');
+            window.location.href = "/login.html";
+          }
+        } catch (err) {
+          localStorage.removeItem('token');
+          window.location.href = "/login.html";
+        }
+      }
+      window.addEventListener("load", checkSession);
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="/dashboard.html" class="topbar-brand" style="text-decoration:none;">
+        <div>
+          <h1>replicas.live</h1>
+        </div>
+      </a>
+      <div class="topbar-actions">
+        <select id="documentTypeSelect" aria-label="Document type">
+          <option value="payroll">Payroll Statement</option>
+          <option value="employment">Employment Verification Letter</option>
+          <option value="statement">TD Statement</option>
+          <option value="scotiaStatement">Scotia Statement</option>
+          <option value="cibcStatement">CIBC Statement</option>
+          <option value="rbcStatement">RBC Statement</option>
+          <option value="noaStatement">NOA</option>
+          <option value="t4Slip">T4 Slip</option>
+          <option value="bmoVoidCheck">BMO Void Cheque</option>
+          <option value="scotiaVoidCheck">Scotia Void Cheque</option>
+          <option value="rbcVoidCheck">RBC Void Cheque</option>
+          <option value="tdVoidCheck">TD Void Cheque</option>
+          <option value="cibcVoidCheck">CIBC Void Cheque</option>
+        </select>
+        <button id="loadSampleBtn" type="button">Load Sample Data</button>
+        <button id="printBtn" type="button" class="primary">Save PDF</button>
+        <span class="token-badge" id="tokenCount" title="Remaining tokens">...</span>
+        <button id="logoutBtn" type="button" class="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel controls no-print">
+        <div id="payrollControls" class="doc-section">
+        <h2>Company + Employee</h2>
+        <div class="grid two">
+          <label>
+            Company name
+            <input id="companyName" type="text" value="WILCO CONTRACTORS NORTHWEST INC." />
+          </label>
+          <label>
+            Brand text
+            <input id="brandText" type="text" value="WILCO" />
+          </label>
+        </div>
+        <div class="grid two">
+          <label>
+            Brand color
+            <input id="brandColor" type="color" value="#096250" />
+          </label>
+          <label>
+            Paystub design
+            <select id="designTemplate">
+              <option value="classic-blue">Classic Blue</option>
+              <option value="executive-charcoal">Executive Charcoal</option>
+              <option value="northern-mint">Northern Mint</option>
+              <option value="prairie-sand">Prairie Sand</option>
+              <option value="monochrome-ledger">Monochrome Ledger</option>
+            </select>
+          </label>
+        </div>
+        <label class="file-label logo-upload">
+          Upload payroll logo (optional)
+          <input id="payrollLogoFile" type="file" accept="image/*" />
+        </label>
+
+        <div class="grid two">
+          <label>
+            Period ending
+            <input id="periodEnding" type="date" />
+          </label>
+          <label>
+            Pay date
+            <input id="payDate" type="date" />
+          </label>
+        </div>
+        <div class="grid two">
+          <label>
+            Province
+            <select id="province">
+              <option value="AB">AB</option>
+              <option value="BC">BC</option>
+              <option value="ON">ON</option>
+              <option value="QC">QC</option>
+            </select>
+          </label>
+          <label>
+            Pay frequency
+            <select id="frequency">
+              <option value="monthly">monthly</option>
+              <option value="biweekly">biweekly</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid two">
+          <label>
+            Employee name
+            <input id="employeeName" type="text" value="CHAD LEPINE" />
+          </label>
+          <label>
+            Employee ID (optional)
+            <input id="employeeId" type="text" placeholder="EMP-001" />
+          </label>
+        </div>
+
+        <label>
+          Address (one line per row)
+          <textarea id="employeeAddress" rows="3">468 EDGEMONT RD NW
+CALGARY AB T6M 0Y7</textarea>
+        </label>
+
+        <h2>Paystub Status</h2>
+        <div class="status-grid">
+          <p>Pay periods <strong id="uiPayPeriods">0</strong></p>
+          <p>Gross pay <strong id="uiGrossPay">$ 0.00</strong></p>
+          <p>Deductions <strong id="uiTotalDeductions">$ 0.00</strong></p>
+          <p>Net pay <strong id="uiNetPay">$ 0.00</strong></p>
+        </div>
+        <p class="hint status-readiness" id="uiReadiness"></p>
+
+        <h2>Earnings</h2>
+        <p class="hint">This period = rate x hours. Year to date = this period x calculated pay periods.</p>
+        <div class="quick-actions">
+          <button id="addRegularBtn" type="button">+ Regular</button>
+          <button id="addOvertimeBtn" type="button">+ Overtime</button>
+          <button id="addBonusBtn" type="button">+ Bonus</button>
+        </div>
+        <div class="table-wrap">
+          <table class="editor-table" id="earningsTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Rate</th>
+                <th>Hours</th>
+                <th>This period</th>
+                <th>Year to date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button id="addEarningBtn" type="button">+ Add Earning</button>
+
+        <h2>Deductions</h2>
+        <p class="hint">Auto-calculated from gross pay, province, and frequency.</p>
+        <div class="table-wrap">
+          <table class="editor-table" id="deductionsTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>This period</th>
+                <th>Year to date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button id="addDeductionBtn" type="button">Recalculate Deductions</button>
+
+        <h2>Other Benefits + Info</h2>
+        <div class="table-wrap">
+          <table class="editor-table" id="benefitsTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>This period</th>
+                <th>Year to date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button id="addBenefitBtn" type="button">+ Add Benefit</button>
+
+        <div class="grid two">
+          <label>
+            Vacation hours
+            <input id="vacHours" type="number" step="0.01" min="0" value="0" />
+          </label>
+          <label>
+            Sick hours
+            <input id="sickHours" type="number" step="0.01" min="0" value="0" />
+          </label>
+        </div>
+
+        <h2>Footer Notes</h2>
+        <label>
+          Claims / payroll notes (one line each)
+          <textarea id="notes" rows="4">*Federal Claim Code 2
+*Provincial Claim Code 2
+*Excluded from CPP taxable wages
+*Excluded from E.I taxable wages</textarea>
+        </label>
+        </div>
+
+        <div id="employmentControls" class="doc-section is-hidden">
+          <h2>Employment Verification Letter</h2>
+          <div class="grid two">
+            <label>
+              Date
+              <input id="evDate" type="date" />
+            </label>
+            <label>
+              Employee name
+              <input id="evEmployeeName" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Start date
+              <input id="evStartDate" type="date" />
+            </label>
+            <label>
+              Position
+              <input id="evPosition" type="text" />
+            </label>
+          </div>
+          <label>
+            Employee address
+            <textarea id="evEmployeeAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Company name
+              <input id="evCompanyName" type="text" />
+            </label>
+            <label>
+              Annual income (CAD)
+              <input id="evAnnualIncome" type="number" step="0.01" min="0" />
+            </label>
+          </div>
+          <label>
+            Company address
+            <textarea id="evCompanyAddress" rows="3"></textarea>
+          </label>
+          <label class="file-label logo-upload">
+            Upload company logo (optional)
+            <input id="evLogoFile" type="file" accept="image/*" />
+          </label>
+        </div>
+
+        <div id="statementControls" class="doc-section is-hidden">
+          <h2>Statement</h2>
+          <div class="grid two">
+            <label>
+              Name
+              <input id="stName" type="text" />
+            </label>
+            <label>
+              Branch No.
+              <input id="stBranchNo" type="text" />
+            </label>
+          </div>
+          <label>
+            Address (one line per row)
+            <textarea id="stAddress" rows="3"></textarea>
+          </label>
+          <label>
+            Branch address (top)
+            <textarea id="stBranchAddress" rows="2"></textarea>
+          </label>
+          <div class="grid three">
+            <label>
+              Account No.
+              <input id="stAccountNo" type="text" />
+            </label>
+            <label>
+              Statement From
+              <input id="stFrom" type="text" />
+            </label>
+            <label>
+              Statement To
+              <input id="stTo" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Opening balance
+              <input id="stOpeningBalance" type="number" step="0.01" />
+            </label>
+            <label>
+              Account type
+              <input id="stAccountType" type="text" />
+            </label>
+          </div>
+
+          <h2>Statement Rows</h2>
+          <p class="hint">
+            Custom values are allowed for Description, Cheque/Debit, Deposit/Credit, and Date. Balance is auto-calculated.
+          </p>
+          <button id="addStatementRowBtn" type="button">+ Add Row</button>
+          <div class="table-wrap">
+            <table class="editor-table" id="statementTransactionsTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Cheque/Debit</th>
+                  <th>Deposit/Credit</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="scotiaStatementControls" class="doc-section is-hidden">
+          <h2>Scotia Statement</h2>
+          <label>
+            Name
+            <input id="scName" type="text" />
+          </label>
+          <label>
+            Address (one line per row)
+            <textarea id="scAddress" rows="3"></textarea>
+          </label>
+          <label>
+            Branch address
+            <textarea id="scBranchAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Account No.
+              <input id="scAccountNo" type="text" />
+            </label>
+            <label>
+              Account type
+              <input id="scAccountType" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Statement From
+              <input id="scFrom" type="text" />
+            </label>
+            <label>
+              Statement To
+              <input id="scTo" type="text" />
+            </label>
+          </div>
+          <label>
+            Opening balance
+            <input id="scOpeningBalance" type="number" step="0.01" />
+          </label>
+
+          <h2>Transaction Rows</h2>
+          <p class="hint">Each row has a description type and detail line. Balance is auto-calculated.</p>
+          <button id="addScotiaRowBtn" type="button">+ Add Row</button>
+          <div class="table-wrap">
+            <table class="editor-table" id="scotiaTransactionsTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Detail</th>
+                  <th>Withdrawn</th>
+                  <th>Deposited</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="cibcStatementControls" class="doc-section is-hidden">
+          <h2>CIBC Statement</h2>
+          <label>
+            Name
+            <input id="cbName" type="text" />
+          </label>
+          <label>
+            Address (one line per row)
+            <textarea id="cbAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Account No.
+              <input id="cbAccountNo" type="text" />
+            </label>
+            <label>
+              Branch Transit No.
+              <input id="cbBranchTransit" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Statement From
+              <input id="cbFrom" type="text" />
+            </label>
+            <label>
+              Statement To
+              <input id="cbTo" type="text" />
+            </label>
+          </div>
+          <label>
+            Opening balance
+            <input id="cbOpeningBalance" type="number" step="0.01" />
+          </label>
+          <label>
+            Disclaimer text (optional)
+            <textarea id="cbDisclaimer" rows="3">The names shown are based on our current records, as of August 1, 2024. This statement does not reflect any changes in account holders and account holder names that may have occurred prior to this date.</textarea>
+          </label>
+
+          <h2>Transaction Rows</h2>
+          <p class="hint">Each row has a description type and detail line. Balance is auto-calculated.</p>
+          <button id="addCibcRowBtn" type="button">+ Add Row</button>
+          <div class="table-wrap">
+            <table class="editor-table" id="cibcTransactionsTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Detail</th>
+                  <th>Withdrawn</th>
+                  <th>Deposited</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="rbcStatementControls" class="doc-section is-hidden">
+          <h2>RBC Statement</h2>
+          <label>
+            Name
+            <input id="rbName" type="text" />
+          </label>
+          <label>
+            Address (one line per row)
+            <textarea id="rbAddress" rows="3"></textarea>
+          </label>
+          <label>
+            Bank branch address
+            <textarea id="rbBankBranch" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Account No.
+              <input id="rbAccountNo" type="text" />
+            </label>
+            <label>
+              Account type
+              <select id="rbAccountType">
+                <option value="personal">Personal Chequing</option>
+                <option value="business">Business Chequing</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Statement From
+              <input id="rbFrom" type="text" />
+            </label>
+            <label>
+              Statement To
+              <input id="rbTo" type="text" />
+            </label>
+          </div>
+          <label>
+            Opening balance
+            <input id="rbOpeningBalance" type="number" step="0.01" />
+          </label>
+
+          <h2>Transaction Rows</h2>
+          <p class="hint">Each row has a description. Balance is auto-calculated.</p>
+          <button id="addRbcRowBtn" type="button">+ Add Row</button>
+          <div class="table-wrap">
+            <table class="editor-table" id="rbcTransactionsTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Withdrawn</th>
+                  <th>Deposited</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="noaControls" class="doc-section is-hidden">
+          <h2>Notice of Assessment (NOA)</h2>
+          <label>
+            Taxpayer name
+            <input id="noaName" type="text" />
+          </label>
+          <label>
+            Address (one line per row)
+            <textarea id="noaAddress" rows="3"></textarea>
+          </label>
+          <label>
+            Location line
+            <input id="noaLocation" type="text" placeholder="RICHMOND HILL ON L4E1 N2" />
+          </label>
+          <div class="grid two">
+            <label>
+              Social insurance number
+              <input id="noaSin" type="text" placeholder="XXX XX5 016" />
+            </label>
+            <label>
+              Tax year
+              <input id="noaTaxYear" type="text" placeholder="2024" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Date issued
+              <input id="noaDateIssued" type="text" placeholder="Jun 03, 2025" />
+            </label>
+            <label>
+              Reference number
+              <input id="noaRefNumber" type="text" placeholder="0075022" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Reference code
+              <input id="noaRefCode" type="text" placeholder="ZK25ZG45" />
+            </label>
+            <label>
+              Account number
+              <input id="noaAccountNumber" type="text" placeholder="000000000" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Annual income
+              <input id="noaAnnualIncome" type="number" step="0.01" min="0" />
+            </label>
+            <label>
+              Tax deducted at source
+              <input id="noaTaxDeducted" type="number" step="0.01" min="0" value="0" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Balance owing / refund amount
+              <input id="noaBalanceOverride" type="number" step="0.01" min="0" placeholder="Leave blank to auto-calculate" />
+            </label>
+            <label>
+              Balance type
+              <select id="noaBalanceOverrideCrdr">
+                <option value="DR">DR — Balance owing</option>
+                <option value="CR">CR — Refund</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Commissioner name
+              <input id="noaCommissioner" type="text" value="Bob Hamilton" />
+            </label>
+            <label>
+              <span></span>
+            </label>
+          </div>
+          <label>
+            Explanation text
+            <textarea id="noaExplanation" rows="4">We changed your instalments on your return to $0.00 to agree with the credit available in your 2023 instalment account. The balance in your 2024 instalment account is $0.00.
+
+If you have any questions about your assessment, please call our Individual Tax and Enquiries line at 1-800-959-8281.</textarea>
+          </label>
+
+          <h2>Summary Rows (Page 2)</h2>
+          <p class="hint">Line, description, amount, and CR/DR for the tax assessment summary table.</p>
+          <button id="addNoaRowBtn" type="button">+ Add Row</button>
+          <div class="table-wrap">
+            <table class="editor-table" id="noaSummaryTable">
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>CR/DR</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="t4Controls" class="doc-section is-hidden">
+          <h2>T4 Slip</h2>
+          <section class="t4-input-group">
+            <h3>Required Inputs</h3>
+            <p class="hint">Required for auto-calculation: Year, Province (10), Employment income (14). Other fields below are user-entered (manual/optional).</p>
+            <div class="grid two">
+              <label>
+                Year
+                <input id="t4Year" data-t4-key="year" type="text" maxlength="4" placeholder="2024" />
+              </label>
+              <label>
+                Employer account number (Box 54 line)
+                <input id="t4EmployerAccount" data-t4-key="employerAccount" type="text" />
+              </label>
+            </div>
+            <label>
+              Employer's name
+              <input id="t4EmployerName" data-t4-key="employerName" type="text" />
+            </label>
+            <label>
+              Employee name and address
+              <textarea id="t4EmployeeAddress" data-t4-key="employeeAddress" rows="3"></textarea>
+            </label>
+            <div class="grid three">
+              <label>
+                SIN
+                <input id="t4Sin" data-t4-key="sin" type="text" />
+              </label>
+              <label class="t4-check-label">
+                Exempt CPP/QPP (28)
+                <input id="t4ExemptCpp" class="t4-checkbox" data-t4-key="28_cpp_qpp" type="checkbox" />
+              </label>
+              <label class="t4-check-label">
+                Exempt EI (28)
+                <input id="t4ExemptEi" class="t4-checkbox" data-t4-key="28_ei" type="checkbox" />
+              </label>
+            </div>
+            <div class="grid two">
+              <label class="t4-check-label">
+                Exempt PPIP (28)
+                <input id="t4ExemptPpip" class="t4-checkbox" data-t4-key="28_ppip" type="checkbox" />
+              </label>
+              <label>
+                Province code (10)
+                <input id="t4Province" data-t4-key="10" type="text" maxlength="2" />
+              </label>
+            </div>
+            <div class="grid two">
+              <label>14 Employment income <input data-t4-key="14" type="text" /></label>
+              <label>20 RPP contributions <input data-t4-key="20" type="text" /></label>
+            </div>
+            <div class="grid two">
+              <label>22 Income tax deducted <input data-t4-key="22" type="text" /></label>
+              <label>29 Employment code <input data-t4-key="29" type="text" /></label>
+            </div>
+            <div class="grid two">
+              <label>44 Union dues <input data-t4-key="44" type="text" /></label>
+              <label>46 Charitable donations <input data-t4-key="46" type="text" /></label>
+            </div>
+            <div class="grid two">
+              <label>50 RPP/DPSP registration number <input data-t4-key="50" type="text" /></label>
+              <label>52 Pension adjustment <input data-t4-key="52" type="text" /></label>
+            </div>
+          </section>
+
+          <section class="t4-input-group t4-auto-fields">
+            <h3>Auto-calculated</h3>
+            <p class="hint">These boxes are calculated from Year, Province (10), Employment income (14), and Box 28 exemptions.</p>
+            <div class="grid two">
+              <label>16 CPP contributions <input data-t4-key="16" type="text" class="readonly" readonly /></label>
+              <label>17 QPP contributions <input data-t4-key="17" type="text" class="readonly" readonly /></label>
+            </div>
+            <div class="grid two">
+              <label>18 EI premiums <input data-t4-key="18" type="text" class="readonly" readonly /></label>
+              <label>24 EI insurable earnings <input data-t4-key="24" type="text" class="readonly" readonly /></label>
+            </div>
+            <div class="grid two">
+              <label>26 CPP/QPP pensionable earnings <input data-t4-key="26" type="text" class="readonly" readonly /></label>
+              <label>55 PPIP premiums <input data-t4-key="55" type="text" class="readonly" readonly /></label>
+            </div>
+            <div class="grid two">
+              <label>56 PPIP insurable earnings <input data-t4-key="56" type="text" class="readonly" readonly /></label>
+            </div>
+          </section>
+          <p class="hint">These values are mirrored to both T4 copies on the page. Use Save PDF to export the completed form.</p>
+        </div>
+
+        <div id="bmoVoidControls" class="doc-section is-hidden">
+          <h2>BMO Void Cheque</h2>
+          <div class="grid two">
+            <label>
+              Name
+              <input id="bmoVoidName" type="text" />
+            </label>
+            <label>
+              Transit #
+              <input id="bmoVoidTransit" type="text" />
+            </label>
+          </div>
+          <label>
+            Address
+            <textarea id="bmoVoidAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Institution #
+              <input id="bmoVoidInstitution" type="text" />
+            </label>
+            <label>
+              Account #
+              <input id="bmoVoidAccount" type="text" />
+            </label>
+          </div>
+          <p class="hint">Values are overlaid on the BMO void cheque background and exported with Save PDF.</p>
+        </div>
+
+        <div id="scotiaVoidControls" class="doc-section is-hidden">
+          <h2>Scotia Void Cheque</h2>
+          <div class="grid two">
+            <label>
+              Name
+              <input id="scotiaVoidName" type="text" />
+            </label>
+            <label>
+              Transit #
+              <input id="scotiaVoidTransit" type="text" />
+            </label>
+          </div>
+          <label>
+            Address
+            <textarea id="scotiaVoidAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Institution #
+              <input id="scotiaVoidInstitution" type="text" />
+            </label>
+            <label>
+              Account #
+              <input id="scotiaVoidAccount" type="text" />
+            </label>
+          </div>
+          <p class="hint">Values are overlaid on the Scotia void cheque background and exported with Save PDF.</p>
+        </div>
+
+        <div id="rbcVoidControls" class="doc-section is-hidden">
+          <h2>RBC Void Cheque</h2>
+          <div class="grid two">
+            <label>
+              Name
+              <input id="rbcVoidName" type="text" />
+            </label>
+            <label>
+              Transit #
+              <input id="rbcVoidTransit" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              Institution #
+              <input id="rbcVoidInstitution" type="text" />
+            </label>
+            <label>
+              Account #
+              <input id="rbcVoidAccount" type="text" />
+            </label>
+          </div>
+          <p class="hint">Values are overlaid on the RBC void cheque background and exported with Save PDF.</p>
+        </div>
+
+        <div id="tdVoidControls" class="doc-section is-hidden">
+          <h2>TD Void Cheque</h2>
+          <div class="grid two">
+            <label>
+              Customer Name
+              <input id="tdVoidCustomerName" type="text" />
+            </label>
+            <label>
+              Transit #
+              <input id="tdVoidTransit" type="text" />
+            </label>
+          </div>
+          <label>
+            Customer Address
+            <textarea id="tdVoidCustomerAddress" rows="3"></textarea>
+          </label>
+          <div class="grid two">
+            <label>
+              Institution #
+              <input id="tdVoidInstitution" type="text" />
+            </label>
+            <label>
+              Account #
+              <input id="tdVoidAccount" type="text" />
+            </label>
+          </div>
+          <div class="grid two">
+            <label>
+              *Designation #
+              <input id="tdVoidDesignation" type="text" />
+            </label>
+            <label>
+              SWIFT BIC Code
+              <input id="tdVoidSwiftBic" type="text" />
+            </label>
+          </div>
+          <label>
+            Branch Address
+            <textarea id="tdVoidBranchAddress" rows="2"></textarea>
+          </label>
+          <label>
+            Customer Account Number (Your Customer Account Number for wires is composed of the first 4 digits of your 5-digit Transit Number, followed by your 7-digit Account Number.)
+            <input id="tdVoidCustomerAccountNumber" type="text" />
+          </label>
+          <p class="hint">Values are overlaid on the TD void cheque background and exported with Save PDF.</p>
+        </div>
+
+        <div id="cibcVoidControls" class="doc-section is-hidden">
+          <h2>CIBC Void Cheque</h2>
+          <div class="grid two">
+            <label>
+              Name
+              <input id="cibcVoidName" type="text" />
+            </label>
+            <label>
+              Date
+              <input id="cibcVoidDate" type="date" />
+            </label>
+          </div>
+          <label>
+            Address
+            <textarea id="cibcVoidAddress" rows="3"></textarea>
+          </label>
+          <div class="grid three">
+            <label>
+              Transit #
+              <input id="cibcVoidTransit" type="text" />
+            </label>
+            <label>
+              Institution #
+              <input id="cibcVoidInstitution" type="text" />
+            </label>
+            <label>
+              Account #
+              <input id="cibcVoidAccount" type="text" />
+            </label>
+          </div>
+          <label>
+            Branch Address
+            <textarea id="cibcVoidBranchAddress" rows="3"></textarea>
+          </label>
+          <p class="hint">Values are overlaid on both CIBC void cheque pages and exported with Save PDF.</p>
+        </div>
+
+        <div class="template-row" style="display:none;">
+          <button id="exportJsonBtn" type="button">Export JSON</button>
+          <label class="file-label">
+            Import JSON
+            <input id="importJson" type="file" accept="application/json" />
+          </label>
+        </div>
+        <div style="display:none;">
+          <input id="templateNameInput" type="text" />
+          <button id="saveTemplateBtn" type="button"></button>
+          <button id="updateTemplateBtn" type="button"></button>
+          <button id="deleteTemplateBtn" type="button"></button>
+          <select id="templateSelect"></select>
+          <button id="loadTemplateBtn" type="button"></button>
+          <p id="templateMeta"></p>
+        </div>
+        <div class="sticky-save-bar">
+          <p id="uiDocStatus" class="save-status">Ready</p>
+          <div class="sticky-save-actions">
+            <button id="quickSaveBtn" type="button" class="primary">Save PDF</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel preview-wrap">
+        <article class="paystub" id="paystub">
+          <section class="statement">
+            <header class="statement-header">
+              <div class="brand">
+                <img class="payroll-logo-image is-hidden" id="pvPayrollLogoImage" alt="Payroll logo" />
+                <span class="brand-fallback" id="pvBrandFallback">
+                  <span class="brand-star">*</span>
+                  <span id="pvBrandText">WILCO</span>
+                </span>
+              </div>
+              <div class="statement-meta">
+                <h2>Earnings Statement</h2>
+                <p>
+                  <span>Period ending:</span>
+                  <strong id="pvPeriodEnding"></strong>
+                </p>
+                <p>
+                  <span>Pay date:</span>
+                  <strong id="pvPayDate"></strong>
+                </p>
+                <address id="pvEmployeeAddress"></address>
+              </div>
+            </header>
+
+            <div class="statement-grid">
+              <section class="slip-block">
+                <h3>Earnings</h3>
+                <table class="slip-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Rate</th>
+                      <th>Hours</th>
+                      <th>This period</th>
+                      <th>Year to date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pvEarningsBody"></tbody>
+                  <tfoot>
+                    <tr class="strong-row">
+                      <td colspan="3">Gross Pay</td>
+                      <td id="pvGrossThis"></td>
+                      <td id="pvGrossYtd"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                <h3>Deductions</h3>
+                <table class="slip-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>This period</th>
+                      <th>Year to date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pvDeductionsBody"></tbody>
+                </table>
+
+                <div class="notes" id="pvNotes"></div>
+              </section>
+
+              <section class="slip-block">
+                <h3>Other Benefits and Information</h3>
+                <table class="slip-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>This period</th>
+                      <th>Year to date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pvBenefitsBody"></tbody>
+                </table>
+
+                <div class="hours-block">
+                  <p>Vac Hrs <strong id="pvVacHours"></strong></p>
+                  <p>Sick Hrs <strong id="pvSickHours"></strong></p>
+                </div>
+
+                <h3>Deposit</h3>
+                <div class="deposit-box">
+                  <p>
+                    Deposit: <strong id="pvDepositAmount"></strong>
+                  </p>
+                  <p>
+                    Deposit date: <strong id="pvDepositDate"></strong>
+                  </p>
+                </div>
+              </section>
+            </div>
+
+            <footer class="statement-footer">
+              <p class="strong-line">
+                Net Pay <strong id="pvNetThis"></strong>
+                <span id="pvNetYtd"></span>
+              </p>
+            </footer>
+          </section>
+
+          <section class="cheque-section">
+            <div class="cheque-header">
+              <p id="pvCompanyName">WILCO CONTRACTORS NORTHWEST INC.</p>
+              <p class="routing">95876059010802529140601</p>
+            </div>
+
+            <div class="cheque-body">
+              <p class="pay-to">
+                Pay to the order of:
+                <strong id="pvPayee"></strong>
+              </p>
+              <p class="amount-words" id="pvAmountWords"></p>
+              <p class="amount-number" id="pvAmountNumber"></p>
+              <div class="non-negotiable">
+                <p>NON-NEGOTIABLE</p>
+                <p>VOID VOID VOID</p>
+              </div>
+            </div>
+          </section>
+        </article>
+
+        <article class="employment-letter is-hidden" id="employmentLetter">
+          <section class="letter-page">
+            <img class="letter-watermark is-hidden" id="pvEvWatermark" alt="" />
+            <header class="letter-header">
+              <div class="letterhead-brand">
+                <img class="letter-logo-image is-hidden" id="pvEvLogoImage" alt="Company logo" />
+                <p class="letter-logo" id="pvEvCompanyNameTop">COMPANY</p>
+              </div>
+            </header>
+            <div class="letter-rule"></div>
+
+            <p class="letter-date" id="pvEvDate"></p>
+            <p class="letter-salutation">To Whom It May Concern,</p>
+            <p class="letter-subject">
+              SUBJECT: CONFIRMATION OF EMPLOYMENT -
+              <span id="pvEvEmployeeNameUpper"></span>
+            </p>
+
+            <div class="letter-body">
+              <p id="pvEvParagraph1"></p>
+              <p id="pvEvParagraph2"></p>
+              <p id="pvEvParagraph3"></p>
+              <p id="pvEvParagraph4"></p>
+            </div>
+
+            <footer class="letter-signoff">
+              <p>Sincerely,</p>
+              <p>Human Resources</p>
+              <p id="pvEvCompanyNameBottom"></p>
+            </footer>
+
+            <div class="letter-footer-rule"></div>
+            <p class="letter-footer-copy">OFFICIAL COPY</p>
+          </section>
+        </article>
+
+        <article class="statement-report is-hidden" id="statementReport">
+          <section class="statement-page statement-page-one" id="statementPage1">
+            <header class="statement-headline">
+              <img class="statement-bank-logo" src="data:image/png;base64,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" alt="Statement logo" />
+              <p class="statement-branch-address" id="pvStBranchAddress"></p>
+              <div class="statement-bank-meta">
+                <p class="statement-bank-name">TD Canada Trust</p>
+                <p>If you have any questions about this statement, call:</p>
+                <p>Tel: 1-866-222-3456</p>
+                <p>TTY: 1-800-361-1180</p>
+              </div>
+            </header>
+
+            <section class="statement-customer">
+              <p class="statement-ref-row">TDCA71400_7353566_006 E R 00500</p>
+              <p id="pvStNamePage1"></p>
+              <p id="pvStAddressLine1Page1"></p>
+              <p id="pvStAddressLine2Page1"></p>
+            </section>
+
+            <section class="statement-cards">
+              <div class="statement-card">
+                <h4>Statement of Account</h4>
+                <div class="statement-card-grid">
+                  <p><span>Branch No.</span><strong id="pvStBranchNo1"></strong></p>
+                  <p><span>Account No.</span><strong id="pvStAccountNo1"></strong></p>
+                </div>
+              </div>
+              <div class="statement-card">
+                <h4>Account Type</h4>
+                <p class="statement-account-type" id="pvStAccountType1"></p>
+              </div>
+              <div class="statement-card">
+                <h4>Statement From - To</h4>
+                <p class="statement-from-to" id="pvStFromTo1"></p>
+                <p class="statement-page-count">Page 1 of 2</p>
+              </div>
+            </section>
+
+            <table class="statement-ledger">
+              <thead>
+                <tr>
+                  <th>DESCRIPTION</th>
+                  <th>CHEQUE/DEBIT</th>
+                  <th>DEPOSIT/CREDIT</th>
+                  <th>DATE</th>
+                  <th>BALANCE</th>
+                </tr>
+              </thead>
+              <tbody id="pvStRowsPage1"></tbody>
+              <tfoot>
+                <tr>
+                  <td></td>
+                  <td id="pvStTotalDebit1"></td>
+                  <td id="pvStTotalCredit1"></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <section class="statement-fees">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Account/Transaction Type</th>
+                    <th>Fees</th>
+                    <th>Rebate Balance</th>
+                    <th>Waived Fees</th>
+                    <th>Paid Fees</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong id="pvStAccountTypeFees1"></strong><br />TRANSACTIONS</td>
+                    <td>$17.95<br />147X1.25=$183.75</td>
+                    <td>$4,000.00<br />N/A</td>
+                    <td>$0.00<br />$183.75</td>
+                    <td>$17.95<br />$0.00</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="5">Fees Paid: <strong>$17.95</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </section>
+
+            <section class="statement-footer-note">
+              <p>
+                ACCOUNT ISSUED BY: THE TORONTO-DOMINION BANK
+              </p>
+              <p>
+                For your protection, avoid choosing a PIN that could be easily guessed. Memorize your PIN. Never record your PIN near your Access Card.
+              </p>
+            </section>
+          </section>
+
+          <section class="statement-page statement-page-two statement-page-break" id="statementPage2">
+            <header class="statement-headline">
+              <img class="statement-bank-logo" src="data:image/png;base64,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" alt="Statement logo" />
+              <p class="statement-branch-address" id="pvStBranchAddress2"></p>
+              <div class="statement-bank-meta">
+                <p class="statement-bank-name">TD Canada Trust</p>
+              </div>
+            </header>
+
+            <section class="statement-customer">
+              <p id="pvStNamePage2"></p>
+              <p id="pvStAddressLine1Page2"></p>
+              <p id="pvStAddressLine2Page2"></p>
+            </section>
+
+            <section class="statement-cards">
+              <div class="statement-card">
+                <h4>Statement of Account</h4>
+                <div class="statement-card-grid">
+                  <p><span>Branch No.</span><strong id="pvStBranchNo2"></strong></p>
+                  <p><span>Account No.</span><strong id="pvStAccountNo2"></strong></p>
+                </div>
+              </div>
+              <div class="statement-card">
+                <h4>Account Type</h4>
+                <p class="statement-account-type" id="pvStAccountType2"></p>
+              </div>
+              <div class="statement-card">
+                <h4>Statement From - To</h4>
+                <p class="statement-from-to" id="pvStFromTo2"></p>
+                <p class="statement-page-count">Page 2 of 2</p>
+              </div>
+            </section>
+
+            <table class="statement-ledger">
+              <thead>
+                <tr>
+                  <th>DESCRIPTION</th>
+                  <th>CHEQUE/DEBIT</th>
+                  <th>DEPOSIT/CREDIT</th>
+                  <th>DATE</th>
+                  <th>BALANCE</th>
+                </tr>
+              </thead>
+              <tbody id="pvStRowsPage2"></tbody>
+              <tfoot>
+                <tr>
+                  <td></td>
+                  <td id="pvStTotalDebit2"></td>
+                  <td id="pvStTotalCredit2"></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <section class="statement-fees">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Account/Transaction Type</th>
+                    <th>Fees</th>
+                    <th>Rebate Balance</th>
+                    <th>Waived Fees</th>
+                    <th>Paid Fees</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong id="pvStAccountTypeFees2"></strong><br />TRANSACTIONS</td>
+                    <td>$17.95<br />147X1.25=$183.75</td>
+                    <td>$4,000.00<br />N/A</td>
+                    <td>$0.00<br />$183.75</td>
+                    <td>$17.95<br />$0.00</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="5">Fees Paid: <strong>$17.95</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </section>
+
+            <section class="statement-footer-note">
+              <p>
+                ACCOUNT ISSUED BY: THE TORONTO-DOMINION BANK
+              </p>
+              <p>
+                For your protection, avoid choosing a PIN that could be easily guessed. Memorize your PIN. Never record your PIN near your Access Card.
+              </p>
+            </section>
+          </section>
+        </article>
+
+        <article class="scotia-report is-hidden" id="scotiaReport">
+          <section class="scotia-page" id="scotiaPage1">
+            <div class="scotia-margin-text">SBSAV16000_2982229_009 E D 97832</div>
+            <div class="scotia-barcode-wrap">
+              <canvas id="scBarcodesvg1" class="scotia-barcode-svg"></canvas>
+            </div>
+            <header class="scotia-header">
+              <img class="scotia-logo" src="scotia_logo.png" alt="Scotiabank" />
+              <div class="scotia-banner">Day-to-Day Banking</div>
+            </header>
+            <div class="scotia-branch-info" id="pvScBranchAddress"></div>
+            <p class="scotia-ref-line">SBSAV16000_2982229_009 E D 97832</p>
+            <div class="scotia-customer-block">
+              <div class="scotia-customer-left">
+                <p class="scotia-customer-name" id="pvScNamePage1"></p>
+                <p class="scotia-customer-address" id="pvScAddressPage1"></p>
+              </div>
+              <div class="scotia-account-info">
+                <p><strong>Your account number:</strong></p>
+                <p id="pvScAccountNo1"></p>
+                <p class="scotia-small">Questions? Call <strong>1-800-4-SCOTIA</strong></p>
+                <p class="scotia-small">scotiabank.com</p>
+              </div>
+            </div>
+            <div class="scotia-summary">
+              <h3><span id="pvScAccountType1"></span> account summary</h3>
+              <div class="scotia-summary-row">
+                <span>Opening Balance on <span id="pvScFromTo1"></span></span>
+                <span id="pvScOpeningBal"></span>
+              </div>
+              <div class="scotia-summary-row scotia-indent">
+                <span>Minus total withdrawals</span>
+                <span id="pvScTotalWithdrawals"></span>
+              </div>
+              <div class="scotia-summary-row scotia-indent">
+                <span>Plus total deposits</span>
+                <span id="pvScTotalDeposits"></span>
+              </div>
+              <div class="scotia-summary-row scotia-bold">
+                <span>Closing Balance on <span id="pvScClosingDate1"></span></span>
+                <span id="pvScClosingBal"></span>
+              </div>
+            </div>
+            <h3 class="scotia-section-title">Here's what happened in your account this statement period</h3>
+            <table class="scotia-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Transactions</th>
+                  <th>Amounts withdrawn ($)</th>
+                  <th>Amounts deposited ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvScRowsPage1"></tbody>
+            </table>
+            <p class="scotia-continued"><em>continued on next page</em></p>
+            <p class="scotia-page-number">Page 1 of 2</p>
+          </section>
+
+          <section class="scotia-page scotia-page-break" id="scotiaPage2">
+            <div class="scotia-margin-text">SBSAV16000_2982229_009 E D 97832</div>
+            <header class="scotia-header">
+              <img class="scotia-logo" src="scotia_logo.png" alt="Scotiabank" />
+              <div class="scotia-banner">Day-to-Day Banking</div>
+            </header>
+            <div class="scotia-page2-info">
+              <span id="pvScNamePage2"></span> &mdash;
+              <span id="pvScAccountType2"></span> &mdash;
+              <span id="pvScFromTo2"></span> &mdash;
+              Account: <span id="pvScAccountNo2"></span>
+            </div>
+            <h3 class="scotia-section-title">Here's what happened in your account (continued)</h3>
+            <table class="scotia-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Transactions</th>
+                  <th>Amounts withdrawn ($)</th>
+                  <th>Amounts deposited ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvScRowsPage2"></tbody>
+            </table>
+            <p class="scotia-page-number">Page 2 of 2</p>
+          </section>
+        </article>
+
+        <article class="cibc-report is-hidden" id="cibcReport">
+          <section class="cibc-page cibc-page-one" id="cibcPage1">
+            <img class="cibc-logo" src="cibc_logo.png" alt="CIBC" />
+            <h2 class="cibc-title">CIBC Account Statement</h2>
+            <div class="cibc-top-section">
+              <div class="cibc-customer-info">
+                <p class="cibc-customer-name" id="pvCbNamePage1"></p>
+                <p class="cibc-customer-address" id="pvCbAddressPage1"></p>
+              </div>
+              <div class="cibc-statement-info">
+                <p>For <span id="pvCbDateRange1"></span></p>
+                <p>Account number: <span id="pvCbAccountNo1"></span></p>
+                <p>Branch transit number: <span id="pvCbBranchTransit1"></span></p>
+              </div>
+            </div>
+            <p class="cibc-disclaimer-text" id="pvCbDisclaimer"></p>
+            <div class="cibc-summary-area">
+              <div class="cibc-account-summary">
+                <h3>Account summary</h3>
+                <div class="cibc-summary-row">
+                  <span>Opening balance on <span id="pvCbOpenDate"></span></span>
+                  <span id="pvCbOpeningBal"></span>
+                </div>
+                <div class="cibc-summary-row cibc-indent">
+                  <span>Withdrawals</span>
+                  <span id="pvCbTotalWithdrawals"></span>
+                </div>
+                <div class="cibc-summary-row cibc-indent">
+                  <span>Deposits</span>
+                  <span id="pvCbTotalDeposits"></span>
+                </div>
+                <div class="cibc-summary-row cibc-bold">
+                  <span>= Closing balance on <span id="pvCbCloseDate"></span></span>
+                  <span id="pvCbClosingBal"></span>
+                </div>
+              </div>
+              <div class="cibc-contact-box">
+                <h4>Contact information</h4>
+                <p class="cibc-contact-phone">1 800 465 CIBC (2422)</p>
+                <p class="cibc-contact-desc">For telephone banking or to speak with a Customer Service Representative.</p>
+                <p>TTY: 1 800 465 7401</p>
+                <p>Outside Canada: 1 902 420 2422</p>
+                <p><strong>www.cibc.com</strong></p>
+              </div>
+            </div>
+            <h3 class="cibc-section-heading">Transaction details</h3>
+            <table class="cibc-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Withdrawals ($)</th>
+                  <th>Deposits ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvCbRowsPage1"></tbody>
+            </table>
+            <p class="cibc-continued"><em>(continued on next page)</em></p>
+            <div class="cibc-page-footer">
+              <span>10774E PER-2018/09</span>
+              <span>Page 1 of 2</span>
+            </div>
+          </section>
+
+          <section class="cibc-page cibc-page-two cibc-page-break" id="cibcPage2">
+            <div class="cibc-page2-header">
+              <div class="cibc-page2-title">CIBC Account Statement</div>
+              <div class="cibc-statement-info">
+                <p>For <span id="pvCbDateRange2"></span></p>
+                <p>Account number: <span id="pvCbAccountNo2"></span></p>
+                <p>Branch transit number: <span id="pvCbBranchTransit2"></span></p>
+              </div>
+            </div>
+            <h3 class="cibc-section-heading">Transaction details</h3>
+            <table class="cibc-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Withdrawals ($)</th>
+                  <th>Deposits ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvCbRowsPage2"></tbody>
+            </table>
+            <div class="cibc-footer-disclaimer">
+              <p>&#9679; Free Transaction</p>
+              <p><strong>Important:</strong> Please verify the balance shown on this statement with your records and report any errors or omissions within 30 days. If no errors are reported within 30 days, the balance shown will be considered correct.</p>
+              <ul>
+                <li>If you have a bankbook account, please bring your bankbook to any CIBC branch to have your bankbook updated.</li>
+                <li>Please review the terms and conditions of your account agreement for details.</li>
+              </ul>
+              <p>In accordance with current CIBC policy, information regarding your account(s) may be released as required or authorized by law.</p>
+              <p><strong>*Foreign Currency Conversion Fee:</strong> An additional fee of 2.5% of the converted Canadian dollar amount is charged for all foreign currency transactions. This fee is included in the exchange rate shown on your statement.</p>
+              <p class="cibc-trademark">&#174; CIBC Cube Design &amp; "Banking that fits your life." are trademarks of CIBC.</p>
+            </div>
+            <div class="cibc-page-footer">
+              <span>10774E PER-2018/09</span>
+              <span>Page 2 of 2</span>
+            </div>
+          </section>
+        </article>
+
+        <article class="rbc-report is-hidden" id="rbcReport">
+          <section class="rbc-page rbc-page-one" id="rbcPage1">
+            <header class="rbc-header">
+              <div class="rbc-header-left">
+                <img class="rbc-logo" src="rbc_logo.png" alt="RBC" />
+                <div class="rbc-bank-address" id="pvRbBankBranch1"></div>
+              </div>
+              <div class="rbc-header-right">
+                <div class="rbc-title" id="pvRbTitle1">Your personal chequing account statement</div>
+                <div class="rbc-date-range">From <span id="pvRbFrom1"></span> to <span id="pvRbTo1"></span></div>
+              </div>
+            </header>
+            <div class="rbc-ref-line">RBCPDA0001-123456789-01-000001-1-0001 &nbsp;&nbsp;&nbsp; 19715</div>
+            <div class="rbc-info-row">
+              <div class="rbc-customer-block">
+                <p class="rbc-customer-name" id="pvRbName1"></p>
+                <p class="rbc-customer-address" id="pvRbAddress1"></p>
+              </div>
+              <div class="rbc-account-box">
+                <p><strong>Your account number:</strong> <span id="pvRbAccountNo1"></span></p>
+                <p class="rbc-contact-info">How to reach us: 1-800 ROYAL&reg; 1-1 (1-800-769-2511)<br />www.rbcroyalbank.com/deposits</p>
+              </div>
+            </div>
+            <div class="rbc-summary-area">
+              <div class="rbc-summary">
+                <h3 class="rbc-summary-heading">Summary of your account for this period</h3>
+                <p class="rbc-account-detail"><strong><span id="pvRbAccountType1"></span> <span id="pvRbAccountNo1b"></span></strong></p>
+                <p class="rbc-branch-detail" id="pvRbBankBranch1b"></p>
+                <div class="rbc-summary-row">
+                  <span>Your opening balance on <span id="pvRbOpeningDate"></span></span>
+                  <span id="pvRbOpeningBal"></span>
+                </div>
+                <div class="rbc-summary-row">
+                  <span>Total deposits into your account</span>
+                  <span id="pvRbTotalDeposits"></span>
+                </div>
+                <div class="rbc-summary-row">
+                  <span>Total withdrawals from your account</span>
+                  <span id="pvRbTotalWithdrawals"></span>
+                </div>
+                <div class="rbc-summary-row rbc-bold">
+                  <span>Your closing balance on <span id="pvRbClosingDate"></span></span>
+                  <span id="pvRbClosingBal"></span>
+                </div>
+              </div>
+              <div class="rbc-paperless-box">
+                <p class="rbc-paperless-title">RBC is now paperless!</p>
+                <p class="rbc-paperless-text">As of your next statement, you will receive digital images of your cheques instead of having them returned. Digital images will be available online through RBC Online Banking for up to 7 years.</p>
+              </div>
+            </div>
+            <h3 class="rbc-section-heading">Details of your account activity</h3>
+            <table class="rbc-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Withdrawals ($)</th>
+                  <th>Deposits ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvRbRowsPage1"></tbody>
+            </table>
+            <p class="rbc-page-number">1</p>
+          </section>
+
+          <section class="rbc-page rbc-page-two rbc-page-break" id="rbcPage2">
+            <header class="rbc-header">
+              <div class="rbc-header-left">
+                <img class="rbc-logo" src="rbc_logo.png" alt="RBC" />
+                <div class="rbc-bank-address" id="pvRbBankBranch2"></div>
+              </div>
+              <div class="rbc-header-right">
+                <div class="rbc-title" id="pvRbTitle2">Your personal chequing account statement</div>
+                <div class="rbc-date-range">From <span id="pvRbFrom2"></span> to <span id="pvRbTo2"></span></div>
+              </div>
+            </header>
+            <h3 class="rbc-section-heading">Details of your account activity</h3>
+            <table class="rbc-ledger">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Withdrawals ($)</th>
+                  <th>Deposits ($)</th>
+                  <th>Balance ($)</th>
+                </tr>
+              </thead>
+              <tbody id="pvRbRowsPage2"></tbody>
+            </table>
+            <p class="rbc-page-number">2</p>
+          </section>
+        </article>
+
+        <article class="noa-report is-hidden" id="noaReport">
+          <section class="noa-page noa-page-one" id="noaPage1">
+            <div class="noa-header">
+              <div class="noa-cra-brand">
+                <img class="noa-cra-logo" src="canada-flag.png" alt="Flag" />
+                <div class="noa-cra-label"><span>Canada Revenue</span><span>Agence du revenu</span><span>Agency</span><span>du Canada</span></div>
+              </div>
+              <div class="noa-page-meta">
+                <p>Page 1</p>
+                <p id="pvNoaRefNumberTop"></p>
+              </div>
+            </div>
+            <p class="noa-top-location" id="pvNoaTopLocation"></p>
+            <p class="noa-top-account-code" id="pvNoaTopAccountCode"></p>
+            <div class="noa-notice-details noa-notice-details-1">
+              <h3>Notice details</h3>
+              <p><span>Social insurance number</span><strong id="pvNoaSinTop"></strong></p>
+              <p><span>Tax year</span><strong id="pvNoaTaxYearTop"></strong></p>
+              <p><span>Date issued</span><strong id="pvNoaDateIssuedTop"></strong></p>
+            </div>
+            <div class="noa-mailing">
+              <p class="noa-customer-name" id="pvNoaNameMail"></p>
+              <p id="pvNoaAddressBlock1"></p>
+            </div>
+            <span class="noa-zk-code" id="pvNoaRefCodeTop"></span>
+            <div class="noa-assessment-intro">
+              <h2>Notice of assessment</h2>
+              <p>We assessed your <span id="pvNoaTaxYearBody"></span> income tax and benefit return and calculated your balance.</p>
+              <p id="pvNoaBalanceSentence"></p>
+              <p id="pvNoaDepositSentence" style="display:none;">We will deposit your refund into your bank account.</p>
+              <p class="noa-thankyou">Thank you,</p>
+              <p class="noa-commissioner" id="pvNoaCommissioner"></p>
+            </div>
+            <div class="noa-account-summary">
+              <div class="noa-account-left">
+                <h3>Account summary</h3>
+                <p id="pvNoaAccountLabel">You have a refund in the amount shown below.</p>
+                <div class="noa-refund-line"><span>Refund:</span> <strong id="pvNoaRefundAmount">$0.00</strong></div>
+              </div>
+              <div class="noa-account-right">
+                <h4>Go paperless!</h4>
+                <p>Get your mail online through <strong>My Account</strong>.</p>
+                <ol>
+                  <li>Log in at <strong>canada.ca/my-cra-account</strong>.</li>
+                  <li>Select "Manage online mail".</li>
+                </ol>
+              </div>
+            </div>
+            <div class="noa-edge-marks"><span></span><span></span><span></span></div>
+            <p class="noa-footer-code">T451 E (19)X</p>
+            <img class="noa-canada-wordmark" src="canada-logo.png" alt="Canada" />
+          </section>
+
+          <section class="noa-page noa-page-two" id="noaPage2">
+            <div class="noa-header">
+              <div class="noa-cra-brand"><span class="noa-cra-text">Canada Revenue Agency | Agence du revenu du Canada</span></div>
+              <div class="noa-page-meta noa-page-meta-right">
+                <p>Page 2</p>
+              </div>
+            </div>
+            <div class="noa-mailing noa-mailing-top">
+              <p class="noa-customer-name" id="pvNoaNameMail2"></p>
+              <p id="pvNoaAddressBlock2"></p>
+            </div>
+            <div class="noa-notice-details noa-notice-details-2">
+              <h3>Notice details</h3>
+              <p><span>Social insurance number</span><strong id="pvNoaSinTop2"></strong></p>
+              <p><span>Tax year</span><strong id="pvNoaTaxYearTop2"></strong></p>
+            </div>
+            <div class="noa-tax-assessment">
+              <h2>Tax assessment</h2>
+              <p>We calculated your taxes using the amounts below. The following summary is based on the information we have or you gave us.</p>
+              <p>We may review your return later to verify income you reported or deductions or credits you claimed. For more information, go to <strong>canada.ca/taxes-reviews</strong>. Keep all your slips, receipts, and other supporting documents in case we ask to see them.</p>
+            </div>
+            <div class="noa-summary">
+              <h3>Summary</h3>
+              <table class="noa-summary-table">
+                <thead>
+                  <tr>
+                    <th>Line</th>
+                    <th>Description</th>
+                    <th>$ Final amount</th>
+                    <th>CR/DR</th>
+                  </tr>
+                </thead>
+                <tbody id="pvNoaSummaryBody"></tbody>
+                <tbody>
+                  <tr class="noa-direct-deposit-row">
+                    <td></td>
+                    <td><strong>Direct deposit</strong></td>
+                    <td><strong id="pvNoaDdAmount">0.00</strong></td>
+                    <td><strong id="pvNoaDdCrdr">CR</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="noa-explanation">
+              <h3>Explanation of changes and other important information</h3>
+              <p id="pvNoaExplanation1"></p>
+            </div>
+          </section>
+        </article>
+
+        <article class="t4-report is-hidden" id="t4Report">
+          <section class="t4-page" id="t4Page">
+            <img id="t4BgImage" src="T4-1.png" alt="T4 form background" class="t4-bg-image" />
+            <img id="t4BgImageJpg" src="T4-1_bg.jpg" alt="" class="is-hidden" aria-hidden="true" />
+            <div class="t4-overlay" id="t4Overlay" aria-label="T4 preview overlay"></div>
+          </section>
+          <section class="t4-page" id="t4Page2">
+            <img id="t4BgImage2" src="T4-2.png" alt="T4 page 2 background" class="t4-bg-image" />
+            <img id="t4BgImage2Jpg" src="T4-2_bg.jpg" alt="" class="is-hidden" aria-hidden="true" />
+          </section>
+        </article>
+
+        <article class="bmo-void-report is-hidden" id="bmoVoidReport">
+          <section class="bmo-void-page" id="bmoVoidPage">
+            <img id="bmoVoidBgImage" src="Bmo_Void_blank.jpg" alt="BMO void cheque background" class="bmo-void-bg-image" />
+            <div class="bmo-void-overlay" id="bmoVoidOverlay" aria-label="BMO void cheque preview overlay"></div>
+          </section>
+        </article>
+
+        <article class="scotia-void-report is-hidden" id="scotiaVoidReport">
+          <section class="scotia-void-page" id="scotiaVoidPage">
+            <img id="scotiaVoidBgImage" src="Scotia_void_blank.jpg" alt="Scotia void cheque background" class="scotia-void-bg-image" />
+            <div class="scotia-void-overlay" id="scotiaVoidOverlay" aria-label="Scotia void cheque preview overlay"></div>
+          </section>
+        </article>
+
+        <article class="rbc-void-report is-hidden" id="rbcVoidReport">
+          <section class="rbc-void-page" id="rbcVoidPage">
+            <img id="rbcVoidBgImage" src="RBC_void_blank.jpg" alt="RBC void cheque background" class="rbc-void-bg-image" />
+            <div class="rbc-void-overlay" id="rbcVoidOverlay" aria-label="RBC void cheque preview overlay"></div>
+          </section>
+        </article>
+
+        <article class="td-void-report is-hidden" id="tdVoidReport">
+          <section class="td-void-page" id="tdVoidPage">
+            <img id="tdVoidBgImage" src="TD_void_blank.jpg" alt="TD void cheque background" class="td-void-bg-image" />
+            <div class="td-void-overlay" id="tdVoidOverlay" aria-label="TD void cheque preview overlay"></div>
+          </section>
+        </article>
+
+        <article class="cibc-void-report is-hidden" id="cibcVoidReport">
+          <section class="cibc-void-page" id="cibcVoidPage1">
+            <img id="cibcVoidBgImage1" src="CIBC_void_blank_1.jpg" alt="CIBC void cheque background page 1" class="cibc-void-bg-image" />
+            <div class="cibc-void-overlay" id="cibcVoidOverlay1" aria-label="CIBC void cheque page 1 preview overlay"></div>
+          </section>
+          <section class="cibc-void-page" id="cibcVoidPage2">
+            <img id="cibcVoidBgImage2" src="CIBC_void_blank_2.jpg" alt="CIBC void cheque background page 2" class="cibc-void-bg-image" />
+            <div class="cibc-void-overlay" id="cibcVoidOverlay2" aria-label="CIBC void cheque page 2 preview overlay"></div>
+          </section>
+        </article>
+
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="t4-bg-data.js"></script>
+    <script src="t4-2-bg-data.js"></script>
+    <script src="bmo-void-bg-data.js"></script>
+    <script src="scotia-void-bg-data.js"></script>
+    <script src="rbc-void-bg-data.js"></script>
+    <script src="td-void-bg-data.js"></script>
+    <script src="cibc-void-bg-data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

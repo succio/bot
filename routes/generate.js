@@ -1,0 +1,718 @@
+const express = require('express');
+const router = express.Router();
+const OpenAI = require('openai');
+const authMiddleware = require('../middleware/authMiddleware');
+
+const SYSTEM_PROMPT = `You are a document data extraction assistant for a Canadian HR/financial document generator. The user will describe what they want in plain text. Extract the information and return ONLY a valid JSON object — no explanation, no markdown, no code fences.
+
+The user will specify a document type. Return the matching JSON shape below.
+
+=== DOCUMENT TYPE: payroll ===
+The user provides a pay amount (monthly or biweekly gross). You calculate all derived fields automatically.
+
+AUTO-CALCULATION RULES — follow each step exactly:
+
+STEP 1 — HOURS & RATE:
+  biweekly: hours = 80, rate = round(periodPay / 80, 2)
+  monthly:  hours = 160, rate = round(periodPay / 160, 2)
+
+STEP 2 — PERIODS ELAPSED (periodsElapsed):
+  monthly:  periodsElapsed = month number of periodEnding (Jan=1, Feb=2, … Dec=12)
+  biweekly: use this lookup by month of periodEnding:
+    Jan → 2, Feb → 4, Mar → 7, Apr → 8, May → 10, Jun → 11,
+    Jul → 13, Aug → 15, Sep → 17, Oct → 19, Nov → 21, Dec → 22
+  Example: periodEnding = 2026-04-18 → month = April → periodsElapsed = 8
+  Example: periodEnding = 2026-01-31 → month = January → periodsElapsed = 2
+
+STEP 3 — YTD EARNINGS:
+  ytdEarnings = periodPay × periodsElapsed
+
+STEP 4 — CPP (2025/2026):
+  exemptionPerPeriod = 134.62 (biweekly) or 291.67 (monthly)
+  cppPeriod = round(0.0595 × (periodPay - exemptionPerPeriod), 2)
+  cppPeriod = min(cppPeriod, 148.75)   ← cap: $3,867.50 / 26 biweekly or / 12 monthly
+  cppYtd = round(min(cppPeriod × periodsElapsed, 3867.50), 2)
+  (If QC: rate 0.064 instead of 0.0595)
+
+STEP 5 — EI (2025/2026):
+  eiPeriod = round(0.0166 × periodPay, 2)
+  eiPeriod = min(eiPeriod, 40.35)      ← cap: $1,049.12 / 26 biweekly or / 12 monthly
+  eiYtd = round(min(eiPeriod × periodsElapsed, 1049.12), 2)
+
+STEP 6 — ANNUAL GROSS (for tax calculation):
+  annualGross = periodPay × (26 if biweekly, 12 if monthly)
+
+STEP 7 — FEDERAL TAX per period:
+  Compute annual federal tax on annualGross using these brackets:
+    First $57,375 → 15%
+    $57,375–$114,750 → 20.5%
+    $114,750–$177,882 → 26%
+    $177,882–$253,414 → 29%
+    Over $253,414 → 33%
+  Subtract BPA credit: $2,356
+  Subtract CPP deduction credit: cppPeriod × periodsPerYear × 15%
+  Subtract EI deduction credit: eiPeriod × periodsPerYear × 15%
+  annualFederalTax = max(0, bracketTax - 2356 - cppCredit - eiCredit)
+  federalPeriod = round(annualFederalTax / periodsPerYear, 2)
+  federalYtd = round(federalPeriod × periodsElapsed, 2)
+
+STEP 8 — PROVINCIAL TAX per period:
+  Approximate effective annual rate by province (applied to annualGross):
+    ON: 5.05% first $51,446; add 9.15% on $51,446–$102,894; add 11.16% above → effective ~8.5% to 10.5%
+    BC: 5.06% first $45,654; 7.70% to $91,310; 10.5% above → effective ~7% to 9.5%
+    AB: flat 10%
+    QC: 14% first $51,780; 19% to $103,545; 24% above → effective ~16% to 20%
+    SK: 10.5% first $49,720; 12.5% above
+    MB: 10.8% first $36,842; 12.75% to $79,625; 17.4% above
+    NS: 8.79% first $29,590; 14.95% to $59,180; 16.67% above
+    NB: 9.40% first $47,715; 14.82% to $95,431; 16.52% above
+    NL: 8.70% first $43,198; 14.50% to $86,395; 15.80% above
+    PE: 9.65% first $32,656; 13.63% to $64,313; 16.65% above
+  Calculate annual provincial tax using the brackets above, then:
+  provincialPeriod = round(annualProvincialTax / periodsPerYear, 2)
+  provincialYtd = round(provincialPeriod × periodsElapsed, 2)
+
+Return shape:
+{
+  "documentType": "payroll",
+  "companyName": "string — full legal company name",
+  "brandText": "string — short name for header (1-2 words)",
+  "brandColor": "hex string e.g. #096250",
+  "designTemplate": "classic-blue|executive-charcoal|northern-mint|prairie-sand|monochrome-ledger",
+  "periodEnding": "YYYY-MM-DD",
+  "payDate": "YYYY-MM-DD",
+  "province": "AB|BC|ON|QC|SK|MB|NS|NB|NL|PE",
+  "frequency": "monthly|biweekly",
+  "employeeName": "string — FULL NAME IN CAPS",
+  "employeeId": "string",
+  "employeeAddress": "string — use \\n for line breaks",
+  "earnings": [{"label":"Regular","rate":number,"hours":number,"period":number,"ytd":number}],
+  "deductions": [{"label":"Federal Tax","period":number,"ytd":number},{"label":"Provincial Tax","period":number,"ytd":number},{"label":"E.I*","period":number,"ytd":number},{"label":"CPP*","period":number,"ytd":number}],
+  "benefits": [{"label":"Vacation Pay","period":0,"ytd":0}],
+  "vacHours": number,
+  "sickHours": number,
+  "notes": "string"
+}
+
+=== DOCUMENT TYPE: employment ===
+{
+  "documentType": "employment",
+  "employmentVerification": {
+    "date": "YYYY-MM-DD",
+    "employeeName": "string",
+    "startDate": "YYYY-MM-DD",
+    "employeeAddress": "string",
+    "companyName": "string",
+    "companyAddress": "string",
+    "annualIncome": number,
+    "position": "string"
+  }
+}
+
+=== DOCUMENT TYPE: statement (TD Bank) ===
+{
+  "documentType": "statement",
+  "statement": {
+    "name": "string — e.g. MR JOHN DOE",
+    "address": "string — use \\n for line breaks",
+    "branchAddress": "string — use \\n for line breaks",
+    "branchNo": "string",
+    "accountNo": "string",
+    "statementFrom": "string — e.g. OCT 01/25",
+    "statementTo": "string — e.g. DEC 31/25",
+    "openingBalance": number,
+    "accountType": "string — e.g. UNLIMITED",
+    "transactions": [
+      {"description":"string","debit":number,"credit":number,"date":"string — e.g. OCT01 or NOV15"}
+    ]
+  }
+}
+
+=== DOCUMENT TYPE: scotiaStatement ===
+{
+  "documentType": "scotiaStatement",
+  "scotiaStatement": {
+    "name": "string — ALL CAPS, e.g. MR PAUL-EMELYN JEAN-FRANCOIS",
+    "address": "string — use \\n for line breaks",
+    "branchAddress": "string — use \\n for line breaks",
+    "accountNo": "string",
+    "accountType": "string — e.g. Your Preferred Package",
+    "statementFrom": "string — e.g. Oct 18, 2025",
+    "statementTo": "string — e.g. Nov 17, 2025",
+    "openingBalance": number,
+    "transactions": [
+      {"date":"string — e.g. Oct 18","description":"string","detail":"string","withdrawn":number,"deposited":number}
+    ]
+  }
+}
+
+=== DOCUMENT TYPE: cibcStatement ===
+{
+  "documentType": "cibcStatement",
+  "cibcStatement": {
+    "name": "string — ALL CAPS",
+    "address": "string — use \\n for line breaks",
+    "accountNo": "string",
+    "branchTransit": "string",
+    "statementFrom": "string — e.g. Nov 1",
+    "statementTo": "string — e.g. Nov 30, 2024",
+    "openingBalance": number,
+    "disclaimer": "string",
+    "transactions": [
+      {"date":"string — e.g. Nov 1","description":"string","detail":"string","withdrawn":number,"deposited":number}
+    ]
+  }
+}
+
+=== DOCUMENT TYPE: rbcStatement ===
+{
+  "documentType": "rbcStatement",
+  "rbcStatement": {
+    "name": "string — ALL CAPS",
+    "address": "string — use \\n for line breaks",
+    "accountNo": "string",
+    "accountType": "personal|business",
+    "bankBranch": "string — branch name and address, use \\n",
+    "statementFrom": "string — e.g. Sep 01, 2024",
+    "statementTo": "string — e.g. Sep 30, 2024",
+    "openingBalance": number,
+    "transactions": [
+      {"date":"string — e.g. 01 Sep","description":"string","withdrawn":number,"deposited":number}
+    ]
+  }
+}
+
+=== DOCUMENT TYPE: noaStatement ===
+{
+  "documentType": "noaStatement",
+  "noaStatement": {
+    "name": "string — ALL CAPS",
+    "address": "string — use \\n for line breaks",
+    "location": "string — city/postal",
+    "sin": "string — e.g. XXX XX5 016",
+    "taxYear": "string — e.g. 2024",
+    "dateIssued": "string — e.g. Jun 03, 2025",
+    "refNumber": "string — 7 digits",
+    "refCode": "string — e.g. ZK25ZG45",
+    "accountNumber": "string — 9 digits",
+    "annualIncome": number,
+    "taxDeducted": number,
+    "commissioner": "string",
+    "explanation": "string",
+    "summaryRows": []
+  }
+}
+
+=== DOCUMENT TYPE: t4Slip ===
+{
+  "documentType": "t4Slip",
+  "t4Slip": {
+    "year": "string — e.g. 2024",
+    "employerAccount": "string — e.g. 123456789RP0001",
+    "employerName": "string",
+    "employeeAddress": "string — first line is employee full name, subsequent lines are address, use \\n",
+    "sin": "string — e.g. 123 456 789",
+    "10": "string — province code e.g. ON",
+    "14": "string — employment income amount",
+    "22": "string — income tax deducted",
+    "16": "string — CPP contributions",
+    "17": "string — QPP contributions (QC only, else empty)",
+    "18": "string — EI premiums",
+    "24": "string — EI insurable earnings",
+    "26": "string — CPP/QPP pensionable earnings",
+    "55": "string — PPIP premiums (QC only)",
+    "56": "string — PPIP insurable earnings (QC only)"
+  }
+}
+
+=== DOCUMENT TYPE: bmoVoidCheck ===
+{
+  "documentType": "bmoVoidCheck",
+  "bmoVoidCheck": {
+    "name": "string",
+    "address": "string — use \\n for line breaks",
+    "transit": "string — 5 digits",
+    "institution": "string — 3 digits, BMO is 001",
+    "account": "string — 7 digits"
+  }
+}
+
+=== DOCUMENT TYPE: scotiaVoidCheck ===
+{
+  "documentType": "scotiaVoidCheck",
+  "scotiaVoidCheck": {
+    "name": "string",
+    "address": "string — use \\n for line breaks",
+    "transit": "string — 5 digits",
+    "institution": "string — 3 digits, Scotia is 002",
+    "account": "string — 7 digits"
+  }
+}
+
+=== DOCUMENT TYPE: rbcVoidCheck ===
+{
+  "documentType": "rbcVoidCheck",
+  "rbcVoidCheck": {
+    "name": "string",
+    "transit": "string — 5 digits",
+    "institution": "string — 3 digits, RBC is 003",
+    "account": "string — 7 digits"
+  }
+}
+
+=== DOCUMENT TYPE: tdVoidCheck ===
+{
+  "documentType": "tdVoidCheck",
+  "tdVoidCheck": {
+    "customerName": "string",
+    "customerAddress": "string — use \\n for line breaks",
+    "transit": "string — 5 digits",
+    "institution": "string — 3 digits, TD is 004",
+    "account": "string — 7 digits",
+    "designation": "string — e.g. Personal Chequing",
+    "swiftBic": "string — e.g. TDOMCATTTOR",
+    "branchAddress": "string — use \\n",
+    "customerAccountNumber": "string"
+  }
+}
+
+=== DOCUMENT TYPE: cibcVoidCheck ===
+{
+  "documentType": "cibcVoidCheck",
+  "cibcVoidCheck": {
+    "name": "string",
+    "address": "string — use \\n for line breaks",
+    "date": "string — YYYY-MM-DD",
+    "transit": "string — 5 digits",
+    "institution": "string — 3 digits, CIBC is 010",
+    "account": "string — 7 digits",
+    "branchAddress": "string — use \\n"
+  }
+}
+
+=== BANK STATEMENT GENERATION RULES (ALL BANK TYPES) ===
+
+RULE 1 — TRANSACTION COUNT: Generate EXACTLY the number of transactions specified in "Number of Transactions" field. No more, no fewer. If not specified, default to 50.
+
+RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, you MUST hit it:
+  closing = opening + sum(all credits/deposits) - sum(all debits/withdrawals)
+  Adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
+  Do the arithmetic before generating — work backwards from the target if needed.
+
+RULE 3 — PROVINCE-AWARE MERCHANT NAMES (apply based on "Province" field):
+  BC → suffix "BCCA", city Burnaby or Vancouver, utility BC Hydro, mobile Telus
+  ON → suffix "ONCA", city Ottawa or Nepean, utility Hydro Ottawa, mobile Rogers
+  AB → suffix "ABCA", city Calgary or Edmonton, utility ATCO Gas, mobile Shaw
+  QC → suffix "QCCA", city Montreal or Laval, utility Hydro-Québec, mobile Vidéotron
+  SK → suffix "SKCA", city Regina or Saskatoon, utility SaskPower, mobile SaskTel
+  MB → suffix "MBCA", city Winnipeg, utility Manitoba Hydro, mobile Bell MTS
+  NS → suffix "NSCA", city Halifax, utility Nova Scotia Power, mobile Eastlink
+  NB → suffix "NBCA", city Moncton or Fredericton, utility NB Power
+  PE → suffix "PECA", city Charlottetown, utility Maritime Electric
+  NL → suffix "NLCA", city St. John's, utility Newfoundland Power
+  (Default to ON rules if province not specified)
+
+RULE 4 — PAYROLL PLACEMENT: Place payroll/direct deposit credits on the EXACT dates specified. Never move them.
+
+RULE 5 — CHRONOLOGICAL ORDER: All 50 transactions must be in strict ascending date order.
+
+RULE 6 — REALISTIC VARIETY: Use a natural mix across the month — groceries, gas, retail, utilities, restaurants, ATM withdrawals, e-transfers. Spread transactions across the full period, not clustered.
+
+RULE 7 — FILLER MERCHANT FORMAT (by bank):
+  TD statement: use format "OPOS MERCHANT CITY SUFFIX" or "APOS MERCHANT CITY SUFFIX" for debit card purchases
+  Scotia: use "Opos Merchant City SUFFIX" / "Apos Merchant City SUFFIX" with realistic detail fields
+  CIBC/RBC: use clean merchant names with city and suffix
+
+=== DEFAULTS ===
+When the user says "same account holder" or does not specify name/address for Scotia statements, use:
+  name: "MR PAUL-EMELYN JEAN-FRANCOIS"
+  address: "2038 CALTRA CRES\\nNEPEAN ON\\nK2J 6V4"
+  branchAddress: "51326\\n3701 STRANDHERD DRIVE\\nNEPEAN ONTARIO K2J 4G8"
+  accountNo: "51326 14857 84"
+  accountType: "Your Preferred Package"
+
+Biweekly payroll deposits (Scotia) use detail "73329246 Free Interac E-Transfer".
+Filler deposits (Scotia) use detail with an 8-digit reference number prefix.
+
+All transactions must be in chronological order.
+Return ONLY the JSON object. No other text.`;
+
+// ─── Payroll post-processing ──────────────────────────────────────────────────
+function r2(n) { return Math.round(n * 100) / 100; }
+
+function periodsElapsed(periodEnding, frequency) {
+  const d = new Date(periodEnding + 'T12:00:00');
+  if (isNaN(d)) return frequency === 'monthly' ? 1 : 2;
+  const month = d.getMonth() + 1; // 1–12
+  if (frequency === 'monthly') return month;
+  // biweekly: count 14-day periods from Jan 1
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((d - jan1) / 86400000) + 1;
+  return Math.max(1, Math.ceil(dayOfYear / 14));
+}
+
+function annualFederalTax(annualGross) {
+  const brackets = [
+    [57375, 0.15],
+    [114750, 0.205],
+    [177882, 0.26],
+    [253414, 0.29],
+    [Infinity, 0.33],
+  ];
+  let tax = 0, prev = 0;
+  for (const [top, rate] of brackets) {
+    if (annualGross <= prev) break;
+    tax += Math.min(annualGross, top) * rate - prev * rate;
+    prev = top;
+    if (top === Infinity) break;
+  }
+  return Math.max(0, tax);
+}
+
+function annualProvincialTax(annualGross, province) {
+  const brackets = {
+    ON: [[51446,0.0505],[102894,0.0915],[220000,0.1116],[Infinity,0.1216]],
+    BC: [[45654,0.0506],[91310,0.077],[104835,0.105],[127299,0.1229],[172602,0.147],[240716,0.168],[Infinity,0.205]],
+    AB: [[Infinity,0.10]],
+    QC: [[51780,0.14],[103545,0.19],[126000,0.24],[Infinity,0.2575]],
+    SK: [[49720,0.105],[142058,0.125],[Infinity,0.145]],
+    MB: [[36842,0.108],[79625,0.1275],[Infinity,0.174]],
+    NS: [[29590,0.0879],[59180,0.1495],[93000,0.1667],[150000,0.175],[Infinity,0.21]],
+    NB: [[47715,0.094],[95431,0.1482],[176756,0.1652],[Infinity,0.203]],
+    NL: [[43198,0.087],[86395,0.145],[154244,0.158],[215943,0.178],[275870,0.198],[Infinity,0.208]],
+    PE: [[32656,0.0965],[64313,0.1363],[105000,0.1665],[Infinity,0.18]],
+  };
+  const prov = (province || 'ON').toUpperCase();
+  const tiers = brackets[prov] || brackets.ON;
+  let tax = 0, prev = 0;
+  for (const [top, rate] of tiers) {
+    if (annualGross <= prev) break;
+    tax += (Math.min(annualGross, top) - prev) * rate;
+    prev = top;
+    if (!isFinite(top)) break;
+  }
+  return Math.max(0, tax);
+}
+
+function fixPayrollCalculations(preset) {
+  if (preset.documentType !== 'payroll') return preset;
+
+  const frequency = preset.frequency || 'biweekly';
+  const periodsPerYear = frequency === 'monthly' ? 12 : 26;
+  const hours = frequency === 'monthly' ? 160 : 80;
+
+  // Get period gross from AI-generated earnings
+  const periodGross = preset.earnings && preset.earnings.length
+    ? Number(preset.earnings[0].period) || 0
+    : 0;
+
+  if (!periodGross) return preset;
+
+  const annualGross = periodGross * periodsPerYear;
+  const rate = r2(periodGross / hours);
+  const pe = periodsElapsed(preset.periodEnding, frequency);
+
+  // CPP 2025
+  const cppExemption = frequency === 'monthly' ? 291.67 : 134.62;
+  const cppMaxAnnual = 3867.50;
+  const cppPeriod = r2(Math.min(0.0595 * Math.max(0, periodGross - cppExemption), cppMaxAnnual / periodsPerYear));
+  const cppYtd = r2(Math.min(cppPeriod * pe, cppMaxAnnual));
+
+  // EI 2025
+  const eiMaxAnnual = 1049.12;
+  const eiPeriod = r2(Math.min(0.0166 * periodGross, eiMaxAnnual / periodsPerYear));
+  const eiYtd = r2(Math.min(eiPeriod * pe, eiMaxAnnual));
+
+  // Federal tax
+  const cppAnnual = cppPeriod * periodsPerYear;
+  const eiAnnual = eiPeriod * periodsPerYear;
+  const bpaCredit = 2356;
+  const cppCredit = r2(cppAnnual * 0.15);
+  const eiCredit = r2(eiAnnual * 0.15);
+  const annualFed = Math.max(0, annualFederalTax(annualGross) - bpaCredit - cppCredit - eiCredit);
+  const fedPeriod = r2(annualFed / periodsPerYear);
+  const fedYtd = r2(fedPeriod * pe);
+
+  // Provincial tax
+  const prov = preset.province || 'ON';
+  const annualProv = annualProvincialTax(annualGross, prov);
+  const provPeriod = r2(annualProv / periodsPerYear);
+  const provYtd = r2(provPeriod * pe);
+
+  // Rebuild earnings with corrected values
+  const updatedEarnings = (preset.earnings || []).map((row, i) => {
+    if (i === 0) {
+      return { ...row, hours, rate, period: periodGross, ytd: r2(periodGross * pe) };
+    }
+    return row;
+  });
+
+  // Rebuild deductions with corrected values
+  const deductionMap = {
+    'Federal Tax': { period: fedPeriod, ytd: fedYtd },
+    'Provincial Tax': { period: provPeriod, ytd: provYtd },
+    'E.I*': { period: eiPeriod, ytd: eiYtd },
+    'CPP*': { period: cppPeriod, ytd: cppYtd },
+  };
+
+  const updatedDeductions = (preset.deductions || [
+    { label: 'Federal Tax' },
+    { label: 'Provincial Tax' },
+    { label: 'E.I*' },
+    { label: 'CPP*' },
+  ]).map(row => {
+    const fix = deductionMap[row.label];
+    return fix ? { ...row, ...fix } : row;
+  });
+
+  const defaultNotes = '*Federal Claim Code 2\n*Provincial Claim Code 2\n*Excluded from CPP taxable wages\n*Excluded from E.I taxable wages';
+
+  return { ...preset, earnings: updatedEarnings, deductions: updatedDeductions, notes: defaultNotes };
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+router.post('/', authMiddleware, async (req, res) => {
+  const { prompt, documentType } = req.body;
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
+    return res.status(400).json({ error: 'Prompt is required.' });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'AI service is not configured.' });
+  }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const userMessage = documentType
+    ? `Document type: ${documentType}\n\n${prompt.trim()}`
+    : prompt.trim();
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userMessage }
+      ],
+      temperature: 0.1,
+      max_tokens: 4096,
+      response_format: { type: 'json_object' }
+    });
+
+    const raw = completion.choices[0].message.content.trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(500).json({ error: 'AI returned malformed JSON. Please try again.' });
+    }
+
+    const fixed = fixPayrollCalculations(parsed);
+    res.json({ preset: fixed });
+  } catch (err) {
+    console.error('OpenAI error:', err.message);
+    const status = err.status || 500;
+    res.status(status).json({ error: err.message || 'AI generation failed.' });
+  }
+});
+
+// ─── Bank Package multi-month generation ──────────────────────────────────────
+const BANK_DOC_TYPES = { td: 'statement', scotia: 'scotiaStatement', cibc: 'cibcStatement', rbc: 'rbcStatement' };
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_UPPER = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MONTH_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+
+function formatPeriod(bank, year, month) {
+  const s = MONTH_SHORT[month - 1];
+  const u = MONTH_UPPER[month - 1];
+  const d = daysInMonth(year, month);
+  const yr2 = String(year).slice(2);
+  const nm = month === 12 ? 1 : month + 1;
+  const ny = month === 12 ? year + 1 : year;
+  const ns = MONTH_SHORT[nm - 1];
+  switch (bank) {
+    case 'td':    return { from: `${u} 01/${yr2}`, to: `${u} ${d}/${yr2}` };
+    case 'scotia':return { from: `${s} 18, ${year}`, to: `${ns} 17, ${ny}` };
+    case 'cibc':  return { from: `${s} 1`, to: `${s} ${d}, ${year}` };
+    case 'rbc':   return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
+    default:      return { from: `${s} 01/${yr2}`, to: `${s} ${d}/${yr2}` };
+  }
+}
+
+function calcClosing(openingBalance, transactions, bank) {
+  let bal = openingBalance;
+  for (const tx of (transactions || [])) {
+    if (bank === 'td') {
+      bal += (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
+    } else {
+      bal += (Number(tx.deposited) || 0) - (Number(tx.withdrawn) || 0);
+    }
+  }
+  return Math.round(bal * 100) / 100;
+}
+
+// Province-aware filler merchant pool
+const FILLER_MERCHANTS = {
+  BC: ['SHOPPERS DRUG MART BURNABY BCCA','SAVE-ON-FOODS BURNABY BCCA','TIM HORTONS BURNABY BCCA','MCDONALDS VANCOUVER BCCA','LONDON DRUGS BURNABY BCCA','STARBUCKS VANCOUVER BCCA','DOLLARAMA BURNABY BCCA','SUPERSTORE BURNABY BCCA','SUBWAY BURNABY BCCA','BOSTON PIZZA BURNABY BCCA','WINNERS BURNABY BCCA','REXALL BURNABY BCCA','SAFEWAY BURNABY BCCA','PHARMASAVE BURNABY BCCA','A&W VANCOUVER BCCA'],
+  ON: ['SHOPPERS DRUG MART OTTAWA ONCA','METRO OTTAWA ONCA','TIM HORTONS NEPEAN ONCA','MCDONALDS OTTAWA ONCA','DOLLARAMA NEPEAN ONCA','SUPERSTORE OTTAWA ONCA','SUBWAY OTTAWA ONCA','BOSTON PIZZA NEPEAN ONCA','WINNERS OTTAWA ONCA','LOBLAWS OTTAWA ONCA','REXALL NEPEAN ONCA','STARBUCKS OTTAWA ONCA','A&W NEPEAN ONCA','FRESHCO OTTAWA ONCA','FARMBOY NEPEAN ONCA'],
+  AB: ['SHOPPERS DRUG MART CALGARY ABCA','SAFEWAY CALGARY ABCA','TIM HORTONS EDMONTON ABCA','MCDONALDS CALGARY ABCA','DOLLARAMA EDMONTON ABCA','SUPERSTORE CALGARY ABCA','SUBWAY EDMONTON ABCA','BOSTON PIZZA CALGARY ABCA','WINNERS CALGARY ABCA','CO-OP GROCERY EDMONTON ABCA','REXALL CALGARY ABCA','STARBUCKS CALGARY ABCA','A&W EDMONTON ABCA','SOBEYS EDMONTON ABCA'],
+  QC: ['PHARMACIE JEAN COUTU MONTREAL QCCA','IGA MONTREAL QCCA','TIM HORTONS LAVAL QCCA','MCDONALDS MONTREAL QCCA','DOLLARAMA LAVAL QCCA','MAXI MONTREAL QCCA','SUBWAY LAVAL QCCA','ST-HUBERT MONTREAL QCCA','WINNERS MONTREAL QCCA','METRO MONTREAL QCCA','PHARMAPRIX LAVAL QCCA','STARBUCKS MONTREAL QCCA','A&W MONTREAL QCCA'],
+  SK: ['SHOPPERS DRUG MART REGINA SKCA','SOBEYS REGINA SKCA','TIM HORTONS SASKATOON SKCA','MCDONALDS REGINA SKCA','DOLLARAMA SASKATOON SKCA','SUPERSTORE REGINA SKCA','SUBWAY SASKATOON SKCA','BOSTON PIZZA REGINA SKCA','WINNERS REGINA SKCA','CO-OP GROCERY SASKATOON SKCA'],
+  MB: ['SHOPPERS DRUG MART WINNIPEG MBCA','SAFEWAY WINNIPEG MBCA','TIM HORTONS WINNIPEG MBCA','MCDONALDS WINNIPEG MBCA','DOLLARAMA WINNIPEG MBCA','SUPERSTORE WINNIPEG MBCA','SUBWAY WINNIPEG MBCA','BOSTON PIZZA WINNIPEG MBCA','WINNERS WINNIPEG MBCA','CO-OP GROCERY WINNIPEG MBCA'],
+  NS: ['SHOPPERS DRUG MART HALIFAX NSCA','SOBEYS HALIFAX NSCA','TIM HORTONS HALIFAX NSCA','MCDONALDS HALIFAX NSCA','DOLLARAMA HALIFAX NSCA','SUPERSTORE HALIFAX NSCA','SUBWAY HALIFAX NSCA','BOSTON PIZZA HALIFAX NSCA'],
+  NB: ['SHOPPERS DRUG MART MONCTON NBCA','SOBEYS FREDERICTON NBCA','TIM HORTONS MONCTON NBCA','MCDONALDS FREDERICTON NBCA','DOLLARAMA MONCTON NBCA','SUPERSTORE FREDERICTON NBCA'],
+  NL: ['SHOPPERS DRUG MART ST JOHNS NLCA','SOBEYS ST JOHNS NLCA','TIM HORTONS ST JOHNS NLCA','MCDONALDS ST JOHNS NLCA','DOLLARAMA ST JOHNS NLCA'],
+  PE: ['SHOPPERS DRUG MART CHARLOTTETOWN PECA','SOBEYS CHARLOTTETOWN PECA','TIM HORTONS CHARLOTTETOWN PECA','MCDONALDS CHARLOTTETOWN PECA'],
+};
+const FILLER_AMOUNTS = [8.47, 12.33, 15.67, 18.99, 22.45, 25.11, 27.89, 31.42, 34.76, 37.23, 41.55, 44.88, 47.15, 9.63, 13.77, 16.44, 19.22, 23.88, 26.55, 29.14, 33.67, 36.41, 39.78, 43.22, 46.05];
+
+function padTransactions(txs, targetCount, bank, year, month, province) {
+  if (txs.length >= targetCount) return txs;
+  const needed = targetCount - txs.length;
+  const prov = (province || 'ON').toUpperCase();
+  const pool = FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
+  const days = daysInMonth(year, month);
+  const mu = MONTH_UPPER[month - 1];
+  const ms = MONTH_SHORT[month - 1];
+
+  // Collect used days to spread fillers
+  const usedDays = new Set(txs.map(t => {
+    const m = String(t.date || '').match(/(\d{1,2})$/);
+    return m ? parseInt(m[1]) : null;
+  }).filter(Boolean));
+
+  // Pick days for filler — prefer unused, then any day in lower half of month
+  const candidateDays = [];
+  for (let d = days; d >= 1; d--) {
+    if (!usedDays.has(d)) candidateDays.push(d);
+  }
+  // If we need more, allow repeating days
+  while (candidateDays.length < needed) {
+    for (let d = Math.floor(days / 2); d >= 1 && candidateDays.length < needed; d--) {
+      candidateDays.push(d);
+    }
+  }
+  candidateDays.sort((a, b) => a - b);
+
+  const fillers = [];
+  for (let i = 0; i < needed; i++) {
+    const day = candidateDays[i % candidateDays.length];
+    const dayStr = String(day).padStart(2, '0');
+    const merchant = pool[i % pool.length];
+    const amount = FILLER_AMOUNTS[i % FILLER_AMOUNTS.length];
+    if (bank === 'td') {
+      fillers.push({ description: `OPOS ${merchant}`, debit: amount, credit: 0, date: `${mu}${dayStr}` });
+    } else if (bank === 'scotia' || bank === 'cibc') {
+      fillers.push({ date: `${ms} ${day}`, description: merchant, detail: '', withdrawn: amount, deposited: 0 });
+    } else if (bank === 'rbc') {
+      fillers.push({ date: `${dayStr} ${ms}`, description: merchant, withdrawn: amount, deposited: 0 });
+    }
+  }
+
+  // Merge and re-sort by day
+  const merged = [...txs, ...fillers].sort((a, b) => {
+    const dayA = parseInt(String(a.date || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
+    const dayB = parseInt(String(b.date || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
+    return dayA - dayB;
+  });
+  return merged;
+}
+
+function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, total) {
+  const period = formatPeriod(bank, year, month);
+  const monthLabel = `${MONTH_FULL[month - 1]} ${year}`;
+  const ord = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'][idx] || `${idx+1}th`;
+
+  // Extract transaction count from details (default 50)
+  const txCountMatch = details.match(/Number of Transactions:\s*(\d+)/i);
+  const txCount = txCountMatch ? parseInt(txCountMatch[1]) : 50;
+
+  // Extract province from details for explicit reinforcement
+  const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
+  const province = provinceMatch ? provinceMatch[1].toUpperCase() : null;
+
+  // Strip any existing opening balance line from details to avoid conflict
+  const cleanDetails = details.trim().replace(/^opening\s*balance[^\n]*/im, '').trim();
+
+  const provinceReminder = province
+    ? `PROVINCE REMINDER: Province is ${province}. ALL merchant suffixes, cities, utilities, and mobile carriers MUST match the ${province} rules from RULE 3. Do NOT use ON/Ottawa/Nepean/ONCA for any other province.`
+    : '';
+
+  return `${cleanDetails}
+
+Statement period: ${period.from} to ${period.to}
+Opening balance: $${openingBalance.toFixed(2)}
+Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
+${provinceReminder}
+CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
+Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
+}
+
+router.post('/bank-package', authMiddleware, async (req, res) => {
+  const { bank, months, startYear, startMonth, details } = req.body;
+
+  if (!bank || !months || !startYear || !startMonth || !details || typeof details !== 'string') {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  const numMonths = Math.min(Math.max(parseInt(months) || 1, 1), 12);
+  const docType = BANK_DOC_TYPES[bank];
+  if (!docType) return res.status(400).json({ error: 'Invalid bank selection.' });
+  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: 'AI service not configured.' });
+
+  const openingMatch = details.match(/opening\s*balance[:\s]*\$?([\d,]+\.?\d*)/i);
+  let currentBalance = openingMatch ? parseFloat(openingMatch[1].replace(/,/g, '')) : 5000;
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const presets = [];
+  let curYear = parseInt(startYear);
+  let curMonth = parseInt(startMonth);
+
+  for (let i = 0; i < numMonths; i++) {
+    const userMessage = `Document type: ${docType}\n\n${buildBankMonthPrompt(bank, details, curYear, curMonth, currentBalance, i, numMonths)}`;
+    try {
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.4,
+        max_tokens: 16000,
+        response_format: { type: 'json_object' }
+      });
+
+      let parsed;
+      try { parsed = JSON.parse(completion.choices[0].message.content.trim()); }
+      catch { return res.status(500).json({ error: `AI returned malformed JSON on month ${i + 1}.` }); }
+
+      // Extract transaction count and province from details for padding
+      const txCountMatch = details.match(/Number of Transactions:\s*(\d+)/i);
+      const targetTxCount = txCountMatch ? parseInt(txCountMatch[1]) : 50;
+      const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
+      const province = provinceMatch ? provinceMatch[1].toUpperCase() : 'ON';
+
+      // Pad transactions server-side if the AI returned fewer than requested
+      const inner = parsed[docType] || parsed.statement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      if (inner.transactions) {
+        inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province);
+      }
+
+      currentBalance = calcClosing(currentBalance, inner.transactions || [], bank);
+      presets.push({ ...parsed, _monthLabel: `${MONTH_FULL[curMonth - 1]} ${curYear}`, _closingBalance: currentBalance });
+
+    } catch (err) {
+      console.error(`Bank package error month ${i + 1}:`, err.message);
+      return res.status(500).json({ error: `Generation failed at month ${i + 1}: ${err.message}`, partialPresets: presets });
+    }
+
+    curMonth++;
+    if (curMonth > 12) { curMonth = 1; curYear++; }
+  }
+
+  res.json({ presets });
+});
+// ──────────────────────────────────────────────────────────────────────────────
+
+module.exports = router;

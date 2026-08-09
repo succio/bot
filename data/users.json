@@ -1,0 +1,46 @@
+[
+  {
+    "email": "admin@restudio.com",
+    "password": "$2b$10$PbQioY4XM6NbwPSgMS2prOQ4qVz2NBVg068ZKlL18SGwt9O6rtIVK",
+    "credits": 97,
+    "createdAt": "2026-05-12T07:02:56.181Z",
+    "package": "Admin"
+  },
+  {
+    "email": "levelupceo25@icloud.com",
+    "password": "$2b$10$1LF71QiaKpxKS/Dd/1ON0ONJU.fe6GVcE8razTdh4kACJh0IKtRDG",
+    "credits": 10,
+    "createdAt": "2026-05-12T07:02:56.272Z",
+    "package": "Starter"
+  },
+  {
+    "email": "avery683@gmail.com",
+    "password": "$2b$10$Qq1kmORnSC.j9sMgyiDveuT/mzTJkztyCaUbC6VFHS76r4/ypgNN6",
+    "credits": 5,
+    "createdAt": "2026-05-12T07:02:56.363Z",
+    "package": "Starter"
+  },
+  {
+    "email": "gennojenny75@gmail.com",
+    "password": "$2b$10$ItqE58f1LqAUAeFr1glLdOitnau9Eb3mmWn.xwyQU8YGW05Zi0boO",
+    "credits": 10,
+    "createdAt": "2026-05-12T07:02:56.459Z",
+    "package": "Pro"
+  },
+  {
+    "email": "tg:6873264932",
+    "password": "",
+    "credits": 20,
+    "package": "Tester",
+    "telegramId": "6873264932",
+    "telegramName": "Customer",
+    "createdAt": "2026-05-12T07:02:56.459Z"
+  },
+  {
+    "email": "richardlamontagne9@outlook.com",
+    "password": "$2b$10$pB47LpinBskFiUw50X1DTei3/X/VNhp.FsQUbASEunWF0WoRbFGeC",
+    "credits": 1,
+    "createdAt": "2026-05-12T12:21:03.833Z",
+    "package": "Additional Document"
+  }
+]

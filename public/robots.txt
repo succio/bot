@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /index.html
+Disallow: /load-draft.html
+Disallow: /api/
+
+Sitemap: https://replicas.live/sitemap.xml

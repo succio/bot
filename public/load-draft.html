@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Loading statement...</title>
+  <style>
+    body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fff; }
+    .msg { text-align: center; color: #333; }
+    .msg h2 { font-weight: 400; margin-bottom: 0.5rem; }
+    .msg p { color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<div class="msg">
+  <h2>Loading statement data&hellip;</h2>
+  <p>You will be redirected to the app in a moment.</p>
+</div>
+<script>
+  const draft = {
+    documentType: "scotiaStatement",
+    scotiaStatement: {
+      name: "MR PAUL-EMELYN JEAN-FRANCOIS",
+      address: "2038 CALTRA CRES\nNEPEAN ON\nK2J 6V4",
+      branchAddress: "51326\n3701 STRANDHERD DRIVE\nNEPEAN ONTARIO K2J 4G8",
+      accountNo: "51326 14857 84",
+      accountType: "Your Preferred Package",
+      statementFrom: "Mar 18, 2026",
+      statementTo: "Apr 17, 2026",
+      openingBalance: 151000.07,
+      transactions: [
+        { date: "Mar 17", description: "Personal loans",         detail: "CIBC Loans / Pr t CIBC",                   withdrawn: 246.74,  deposited: 0 },
+        { date: "Mar 18", description: "Monthly service fee",    detail: "",                                          withdrawn: 16.95,   deposited: 0 },
+        { date: "Mar 19", description: "Point of sale purchase", detail: "Opos Walmart Canada ONCA",                  withdrawn: 117.83,  deposited: 0 },
+        { date: "Mar 20", description: "Deposit",                detail: "73329246 Free Interac E-Transfer",          withdrawn: 0,       deposited: 8450.00 },
+        { date: "Mar 21", description: "Point of sale purchase", detail: "Opos Esso/Imperial Oil ONCA",               withdrawn: 69.40,   deposited: 0 },
+        { date: "Mar 23", description: "Misc. payment",          detail: "Rogers Communications Inc.",                withdrawn: 182.00,  deposited: 0 },
+        { date: "Mar 24", description: "Point of sale purchase", detail: "Apos Metro Inc. NEPEAN ONCA",               withdrawn: 134.67,  deposited: 0 },
+        { date: "Mar 26", description: "Misc. payment",          detail: "Hydro Ottawa",                              withdrawn: 254.00,  deposited: 0 },
+        { date: "Mar 27", description: "Point of sale purchase", detail: "Opos Costco Wholesale NEPEAN ONCA",         withdrawn: 278.55,  deposited: 0 },
+        { date: "Mar 28", description: "Point of sale purchase", detail: "Opos Amazon.Ca ONCA",                       withdrawn: 196.44,  deposited: 0 },
+        { date: "Mar 30", description: "Insurance",              detail: "Economical Mutual Ins. Company",            withdrawn: 241.87,  deposited: 0 },
+        { date: "Mar 31", description: "Personal loans",         detail: "CIBC Loans / Pr t CIBC",                   withdrawn: 246.74,  deposited: 0 },
+        { date: "Apr 01", description: "Deposit",                detail: "73329831 Free Interac E-Transfer",          withdrawn: 0,       deposited: 2600.00 },
+        { date: "Apr 01", description: "Mortgage",               detail: "Haventree Bank",                           withdrawn: 5825.87, deposited: 0 },
+        { date: "Apr 02", description: "Point of sale purchase", detail: "Opos Canadian Tire ONCA",                   withdrawn: 91.27,   deposited: 0 },
+        { date: "Apr 03", description: "Deposit",                detail: "73329246 Free Interac E-Transfer",          withdrawn: 0,       deposited: 8450.00 },
+        { date: "Apr 04", description: "Point of sale purchase", detail: "Opos Shell Canada ONCA",                    withdrawn: 72.15,   deposited: 0 },
+        { date: "Apr 06", description: "Misc. payment",          detail: "VISA Payment",                              withdrawn: 1100.00, deposited: 0 },
+        { date: "Apr 08", description: "Point of sale purchase", detail: "Apos Shoppers Drug M NEPEAN ONCA",          withdrawn: 53.44,   deposited: 0 },
+        { date: "Apr 10", description: "Withdrawal",             detail: "19851247 Free Interac E-Transfer",          withdrawn: 350.00,  deposited: 0 },
+        { date: "Apr 12", description: "Misc. payment",          detail: "Bell Mobility",                             withdrawn: 95.00,   deposited: 0 },
+        { date: "Apr 14", description: "Personal loans",         detail: "CIBC Loans / Pr t CIBC",                   withdrawn: 246.74,  deposited: 0 },
+        { date: "Apr 15", description: "Point of sale purchase", detail: "Apos Sobeys NEPEAN ONCA",                   withdrawn: 149.33,  deposited: 0 },
+        { date: "Apr 16", description: "Point of sale purchase", detail: "Opos Tim Hortons NEPEAN ONCA",              withdrawn: 14.25,   deposited: 0 }
+      ]
+    }
+  };
+
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(draft))));
+  window.location.href = "/index.html#preset=" + encoded;
+</script>
+</body>
+</html>

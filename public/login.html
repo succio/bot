@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>replicas.live - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #ffffff;
+      --accent: #111111;
+      --accent-hover: #333333;
+      --ink: #111111;
+      --muted: #666666;
+      --border: #e0e0e0;
+      --error: #cc0000;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+      color: var(--ink);
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .login-brand h1 {
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: #111;
+    }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 2rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 0.6rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.6rem 0.7rem;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 0.7rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 2px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+      font-family: inherit;
+      letter-spacing: 0.04em;
+    }
+
+    .submit-btn:hover { background: var(--accent-hover); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      color: var(--error);
+      font-size: 0.82rem;
+      margin-top: 0.6rem;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    .is-hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-brand">
+      <h1>replicas.live</h1>
+    </div>
+
+    <div class="login-card">
+      <div class="tabs">
+        <button class="tab-btn active" id="loginTab">Login</button>
+        <button class="tab-btn" id="registerTab">Register</button>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" type="email" autocomplete="email" required />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="submit-btn" id="loginBtn">Login</button>
+        <p class="error-msg" id="loginError"></p>
+      </form>
+
+      <form id="registerForm" class="is-hidden">
+        <div class="form-group">
+          <label for="regEmail">Email</label>
+          <input id="regEmail" type="email" autocomplete="email" required />
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <input id="regPassword" type="password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <button type="submit" class="submit-btn" id="regBtn">Create Account</button>
+        <p class="error-msg" id="regError"></p>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    loginTab.addEventListener('click', () => {
+      loginTab.classList.add('active');
+      registerTab.classList.remove('active');
+      loginForm.classList.remove('is-hidden');
+      registerForm.classList.add('is-hidden');
+    });
+
+    registerTab.addEventListener('click', () => {
+      registerTab.classList.add('active');
+      loginTab.classList.remove('active');
+      registerForm.classList.remove('is-hidden');
+      loginForm.classList.add('is-hidden');
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      errEl.textContent = '';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: document.getElementById('loginEmail').value,
+            password: document.getElementById('loginPassword').value
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Login failed.';
+          return;
+        }
+
+        localStorage.setItem('token', data.token);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        errEl.textContent = 'Network error. Try again.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('regError');
+      const btn = document.getElementById('regBtn');
+      errEl.textContent = '';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPassword').value
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Registration failed.';
+          return;
+        }
+
+        localStorage.setItem('token', data.token);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        errEl.textContent = 'Network error. Try again.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
