@@ -495,7 +495,7 @@ const sampleData = {
     dateIssued: "Jun 03, 2025",
     refNumber: "0075022",
     refCode: "ZK25ZG45",
-    accountNumber: "000000000",
+    accountNumber: "",
     annualIncome: 70200.00,
     taxDeducted: 15678.00,
     commissioner: "Bob Hamilton",
@@ -726,7 +726,6 @@ const elements = {
   pvCrScoreLeft: document.getElementById("pvCrScoreLeft"),
   pvNoaTopLocation: document.getElementById("pvNoaTopLocation"),
   pvNoaRefCodeTop: document.getElementById("pvNoaRefCodeTop"),
-  pvNoaTopAccountCode: document.getElementById("pvNoaTopAccountCode"),
   pvNoaSinTop: document.getElementById("pvNoaSinTop"),
   pvNoaTaxYearTop: document.getElementById("pvNoaTaxYearTop"),
   pvNoaDateIssuedTop: document.getElementById("pvNoaDateIssuedTop"),
@@ -2923,9 +2922,6 @@ function renderNoaPreview(data) {
 
   const pvNoaTopLocation = document.getElementById("pvNoaTopLocation");
   if (pvNoaTopLocation) pvNoaTopLocation.textContent = noa.location ?? "";
-
-  const pvNoaTopAccountCode = document.getElementById("pvNoaTopAccountCode");
-  if (pvNoaTopAccountCode) pvNoaTopAccountCode.textContent = noa.accountNumber ?? "";
 
   const pvNoaSinTop = document.getElementById("pvNoaSinTop");
   if (pvNoaSinTop) pvNoaSinTop.textContent = noa.sin ?? "";

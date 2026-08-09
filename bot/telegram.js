@@ -140,6 +140,72 @@ function noaLocationFromAddress(address) {
   return (lines[lines.length - 1] || '').toUpperCase();
 }
 
+function formatCanadianPostalCode(text) {
+  return String(text || '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/^([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z])(\d[ABCEGHJ-NPRSTV-Z]\d)$/, '$1 $2');
+}
+
+function formatNoaAddress(address) {
+  const raw = String(address || '')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const joined = (raw.length ? raw.join(', ') : String(address || ''))
+    .toUpperCase()
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const postalMatch = joined.match(/\b([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z])\s*(\d[ABCEGHJ-NPRSTV-Z]\d)\b/);
+  if (!postalMatch) return joined.replace(/, /g, '\n');
+
+  const postal = formatCanadianPostalCode(`${postalMatch[1]}${postalMatch[2]}`);
+  const beforePostal = joined.slice(0, postalMatch.index).replace(/[,\s]+$/g, '').trim();
+  const provinceMatch = beforePostal.match(/\b(AB|BC|ON|QC|SK|MB|NS|NB|NL|PE|NT|NU|YT)\b\s*$/);
+  if (!provinceMatch) return joined.replace(postalMatch[0], postal).replace(/, /g, '\n');
+
+  const province = provinceMatch[1];
+  const beforeProvince = beforePostal.slice(0, provinceMatch.index).replace(/[,\s]+$/g, '').trim();
+  let street = '';
+  let city = '';
+
+  const commaParts = beforeProvince.split(',').map((part) => part.trim()).filter(Boolean);
+  if (commaParts.length >= 2) {
+    city = commaParts.pop();
+    street = commaParts.join(' ');
+  } else if (raw.length >= 2) {
+    const lastLine = raw[raw.length - 1].toUpperCase();
+    city = lastLine
+      .replace(new RegExp(`\\b${province}\\b.*$`), '')
+      .trim();
+    street = raw.slice(0, -1).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
+  } else {
+    const suffixPattern = /\b(STREET|ST|AVENUE|AVE|ROAD|RD|DRIVE|DR|CRESCENT|CRES|COURT|CRT|CT|LANE|LN|BOULEVARD|BLVD|WAY|PLACE|PL|TERRACE|TER|TRAIL|TRL|CIRCLE|CIR|PARKWAY|PKWY)\b\.?/g;
+    let match;
+    let lastSuffix = null;
+    while ((match = suffixPattern.exec(beforeProvince)) !== null) lastSuffix = match;
+    if (lastSuffix) {
+      const cut = lastSuffix.index + lastSuffix[0].length;
+      street = beforeProvince.slice(0, cut).trim();
+      city = beforeProvince.slice(cut).trim();
+    }
+  }
+
+  if (!street || !city) {
+    const parts = beforeProvince.split(/\s+/);
+    city = parts.slice(-1).join(' ');
+    street = parts.slice(0, -1).join(' ');
+  }
+
+  return [
+    street.replace(/\s+/g, ' ').trim(),
+    `${city.replace(/\s+/g, ' ').trim()} ${province} ${postal}`
+  ].filter(Boolean).join('\n');
+}
+
 const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
 
@@ -538,12 +604,13 @@ async function finalizeNOA(ctx, d) {
     mainMenu());
 
   try {
+    const formattedAddress = formatNoaAddress(d.address);
     const presetData = {
       documentType: 'noaStatement',
       noaStatement: {
         name: d.name.toUpperCase(),
-        address: d.address,
-        location: noaLocationFromAddress(d.address),
+        address: formattedAddress,
+        location: noaLocationFromAddress(formattedAddress),
         sin: d.sin,
         taxYear: d.taxYear,
         annualIncome: d.income,
@@ -554,7 +621,7 @@ async function finalizeNOA(ctx, d) {
         dateIssued: new Date().toLocaleDateString('en-CA', { month: 'short', day: '2-digit', year: 'numeric' }),
         refNumber: Math.floor(Math.random() * 9000000 + 1000000).toString(),
         refCode: Math.random().toString(36).slice(2, 10).toUpperCase(),
-        accountNumber: '000000000',
+        accountNumber: '',
         explanation: `We have assessed your return as filed. Your notice of assessment reflects the information you submitted on your ${d.taxYear} income tax return. If you have any questions about your assessment, please call our Individual Tax and Enquiries line at 1-800-959-8281.`,
         summaryRows: []
       }
