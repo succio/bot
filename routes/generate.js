@@ -203,6 +203,23 @@ Return shape:
   }
 }
 
+=== DOCUMENT TYPE: simpliiStatement ===
+{
+  "documentType": "simpliiStatement",
+  "simpliiStatement": {
+    "name": "string — ALL CAPS",
+    "address": "string — use \\n for line breaks",
+    "accountNo": "string",
+    "statementPeriodFrom": "string — e.g. May 01, 2026",
+    "statementPeriodTo": "string — e.g. May 31, 2026",
+    "statementDate": "string — e.g. May 31, 2026",
+    "openingBalance": number,
+    "transactions": [
+      {"transDate":"string — e.g. May 01","effDate":"string — e.g. May 01","description":"string","fundsOut":number,"fundsIn":number}
+    ]
+  }
+}
+
 === DOCUMENT TYPE: noaStatement ===
 {
   "documentType": "noaStatement",
@@ -543,7 +560,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // ─── Bank Package multi-month generation ──────────────────────────────────────
-const BANK_DOC_TYPES = { td: 'statement', bmo: 'bmoStatement', scotia: 'scotiaStatement', cibc: 'cibcStatement', rbc: 'rbcStatement' };
+const BANK_DOC_TYPES = { td: 'statement', bmo: 'bmoStatement', simplii: 'simpliiStatement', scotia: 'scotiaStatement', cibc: 'cibcStatement', rbc: 'rbcStatement' };
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MONTH_UPPER = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const MONTH_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -564,6 +581,7 @@ function formatPeriod(bank, year, month) {
     case 'cibc':  return { from: `${s} 1`, to: `${s} ${d}, ${year}` };
     case 'rbc':   return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
     case 'bmo':   return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
+    case 'simplii': return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
     default:      return { from: `${s} 01/${yr2}`, to: `${s} ${d}/${yr2}` };
   }
 }
@@ -575,6 +593,8 @@ function calcClosing(openingBalance, transactions, bank) {
       bal += (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
     } else if (bank === 'bmo') {
       bal += (Number(tx.added) || 0) - (Number(tx.deducted) || 0);
+    } else if (bank === 'simplii') {
+      bal += (Number(tx.fundsIn) || 0) - (Number(tx.fundsOut) || 0);
     } else {
       bal += (Number(tx.deposited) || 0) - (Number(tx.withdrawn) || 0);
     }
@@ -630,6 +650,7 @@ function requestedTransactionCount(bank, details) {
   if (bank === 'scotia') return Math.min(count, 34);
   if (bank === 'rbc') return Math.min(count, 40);
   if (bank === 'bmo') return Math.min(count, 25);
+  if (bank === 'simplii') return Math.min(count, 21);
   return bank === 'cibc' ? Math.min(count, 30) : count;
 }
 
@@ -656,7 +677,7 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
 
   // Collect used days to spread fillers
   const usedDays = new Set(txs.map(t => {
-    const m = String(t.date || '').match(/(\d{1,2})$/);
+    const m = String(t.date || t.transDate || '').match(/(\d{1,2})$/);
     return m ? parseInt(m[1]) : null;
   }).filter(Boolean));
 
@@ -689,13 +710,15 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
       fillers.push({ date: `${dayStr} ${ms}`, description: merchant, withdrawn: amount, deposited: 0 });
     } else if (bank === 'bmo') {
       fillers.push({ date: `${ms} ${dayStr}`, description: `Debit Card Purchase\n${titleCaseMerchant(merchant)}`, deducted: amount, added: 0 });
+    } else if (bank === 'simplii') {
+      fillers.push({ transDate: `${ms} ${dayStr}`, effDate: `${ms} ${dayStr}`, description: titleCaseMerchant(merchant), fundsOut: amount, fundsIn: 0 });
     }
   }
 
   // Merge and re-sort by day
   const merged = [...txs, ...fillers].sort((a, b) => {
-    const dayA = parseInt(String(a.date || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
-    const dayB = parseInt(String(b.date || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
+    const dayA = parseInt(String(a.date || a.transDate || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
+    const dayB = parseInt(String(b.date || b.transDate || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
     return dayA - dayB;
   });
   return merged;
@@ -778,7 +801,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       const localArea = localAreaFromDetails(details);
 
       // Pad transactions server-side if the AI returned fewer than requested
-      const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.simpliiStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
       if (bank === 'bmo') {
         parsed.documentType = 'bmoStatement';
         parsed.bmoStatement = inner;
@@ -799,6 +822,25 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
           description: tx.description || tx.detail || '',
           deducted: Number(tx.deducted ?? tx.withdrawn ?? tx.debit ?? 0) || 0,
           added: Number(tx.added ?? tx.deposited ?? tx.credit ?? 0) || 0
+        }));
+      }
+      if (bank === 'simplii') {
+        parsed.documentType = 'simpliiStatement';
+        parsed.simpliiStatement = inner;
+        const period = formatPeriod(bank, curYear, curMonth);
+        inner.name ||= '';
+        inner.address ||= '';
+        inner.accountNo ||= '';
+        inner.statementPeriodFrom ||= period.from;
+        inner.statementPeriodTo ||= period.to;
+        inner.statementDate ||= period.to;
+        inner.openingBalance = currentBalance;
+        inner.transactions = (inner.transactions || []).map((tx) => ({
+          transDate: tx.transDate || tx.date || '',
+          effDate: tx.effDate || tx.transDate || tx.date || '',
+          description: tx.description || tx.detail || '',
+          fundsOut: Number(tx.fundsOut ?? tx.withdrawn ?? tx.debit ?? tx.deducted ?? 0) || 0,
+          fundsIn: Number(tx.fundsIn ?? tx.deposited ?? tx.credit ?? tx.added ?? 0) || 0
         }));
       }
       if (inner.transactions) {

@@ -458,6 +458,38 @@ const sampleData = {
       { date: "Jul 26", description: "Debit Card Purchase\nTTC PRESTO Toronto ON", deducted: 50.00, added: 0 },
     ],
   },
+  simpliiStatement: {
+    name: "AMEER AYUBE",
+    address: "308-134 YORK ST\nOTTAWA ON\nK1N 1K8",
+    accountNo: "0293841750",
+    statementPeriodFrom: "May 01, 2026",
+    statementPeriodTo: "May 31, 2026",
+    statementDate: "May 31, 2026",
+    openingBalance: 6256.55,
+    transactions: [
+      { transDate: "May 01", effDate: "May 01", description: "INTERAC E-TRANSFER SEND - RENT", fundsOut: 1500.00, fundsIn: 0 },
+      { transDate: "May 01", effDate: "May 01", description: "HYDRO OTTAWA", fundsOut: 82.47, fundsIn: 0 },
+      { transDate: "May 02", effDate: "May 02", description: "LOBLAWS #1042 OTTAWA ON", fundsOut: 94.23, fundsIn: 0 },
+      { transDate: "May 03", effDate: "May 03", description: "ROGERS WIRELESS", fundsOut: 89.99, fundsIn: 0 },
+      { transDate: "May 05", effDate: "May 05", description: "METRO GROCERY #221 OTTAWA ON", fundsOut: 77.31, fundsIn: 0 },
+      { transDate: "May 07", effDate: "May 07", description: "AMAZON.CA", fundsOut: 34.99, fundsIn: 0 },
+      { transDate: "May 08", effDate: "May 08", description: "SHELL OIL 4892 OTTAWA ON", fundsOut: 62.50, fundsIn: 0 },
+      { transDate: "May 09", effDate: "May 09", description: "INTERAC E-TRANSFER SEND ***BKL", fundsOut: 200.00, fundsIn: 0 },
+      { transDate: "May 10", effDate: "May 10", description: "LOBLAWS #1042 OTTAWA ON", fundsOut: 88.54, fundsIn: 0 },
+      { transDate: "May 11", effDate: "May 11", description: "PETRO CANADA 7821 OTTAWA ON", fundsOut: 55.00, fundsIn: 0 },
+      { transDate: "May 13", effDate: "May 13", description: "AMAZON.CA", fundsOut: 67.43, fundsIn: 0 },
+      { transDate: "May 14", effDate: "May 14", description: "NETFLIX.COM", fundsOut: 20.99, fundsIn: 0 },
+      { transDate: "May 15", effDate: "May 15", description: "KLUE LABS INC PAYROLL", fundsOut: 0, fundsIn: 2627.39 },
+      { transDate: "May 16", effDate: "May 16", description: "METRO GROCERY #221 OTTAWA ON", fundsOut: 65.72, fundsIn: 0 },
+      { transDate: "May 17", effDate: "May 17", description: "INTERAC E-TRANSFER SEND ***WQX", fundsOut: 300.00, fundsIn: 0 },
+      { transDate: "May 19", effDate: "May 19", description: "AMAZON.CA", fundsOut: 29.99, fundsIn: 0 },
+      { transDate: "May 20", effDate: "May 20", description: "LOBLAWS #1042 OTTAWA ON", fundsOut: 102.67, fundsIn: 0 },
+      { transDate: "May 22", effDate: "May 22", description: "INTERAC E-TRANSFER SEND ***PNQ", fundsOut: 250.00, fundsIn: 0 },
+      { transDate: "May 23", effDate: "May 23", description: "PETRO CANADA 7821 OTTAWA ON", fundsOut: 65.00, fundsIn: 0 },
+      { transDate: "May 27", effDate: "May 27", description: "AMAZON.CA", fundsOut: 89.50, fundsIn: 0 },
+      { transDate: "May 29", effDate: "May 29", description: "KLUE LABS INC PAYROLL", fundsOut: 0, fundsIn: 2627.39 },
+    ],
+  },
   statement: {
     name: "MR TREQUIL SKENE",
     address: "142 SEGUIN ST\nRICHMOND HILL ON L4E 1N2",
@@ -711,6 +743,17 @@ const elements = {
   rbOpeningBalance: document.getElementById("rbOpeningBalance"),
   addRbcRowBtn: document.getElementById("addRbcRowBtn"),
   rbcTransactionsTable: document.querySelector("#rbcTransactionsTable tbody"),
+  simpliiStatementControls: document.getElementById("simpliiStatementControls"),
+  simpliiReport: document.getElementById("simpliiReport"),
+  sfName: document.getElementById("sfName"),
+  sfAddress: document.getElementById("sfAddress"),
+  sfAccountNo: document.getElementById("sfAccountNo"),
+  sfFrom: document.getElementById("sfFrom"),
+  sfTo: document.getElementById("sfTo"),
+  sfStatementDate: document.getElementById("sfStatementDate"),
+  sfOpeningBalance: document.getElementById("sfOpeningBalance"),
+  addSimpliiRowBtn: document.getElementById("addSimpliiRowBtn"),
+  simpliiTransactionsTable: document.querySelector("#simpliiTransactionsTable tbody"),
   bmoStatementControls: document.getElementById("bmoStatementControls"),
   bmoReport: document.getElementById("bmoReport"),
   bmName: document.getElementById("bmName"),
@@ -886,6 +929,13 @@ function escapeAttr(value) {
 
 function formatMoney(value) {
   return CAD_FORMATTER.format(value || 0);
+}
+
+
+function fmtShortDate(value) {
+  const text = safeText(value);
+  const match = text.match(/\b([A-Za-z]{3})\s+0?(\d{1,2})/);
+  return match ? `${match[1]} ${match[2].padStart(2, "0")}` : text;
 }
 
 function formatDate(value) {
@@ -1239,6 +1289,7 @@ function getDocumentType() {
   if (value === "cibcStatement") return value;
   if (value === "rbcStatement") return value;
   if (value === "bmoStatement") return value;
+  if (value === "simpliiStatement") return value;
   if (value === "noaStatement") return value;
   if (value === "t4Slip") return value;
   if (value === "bmoVoidCheck") return value;
@@ -1250,7 +1301,7 @@ function getDocumentType() {
 }
 
 function setDocumentType(type) {
-  const validTypes = ["employment", "statement", "scotiaStatement", "cibcStatement", "rbcStatement", "bmoStatement", "noaStatement", "t4Slip", "bmoVoidCheck", "scotiaVoidCheck", "rbcVoidCheck", "tdVoidCheck", "cibcVoidCheck"];
+  const validTypes = ["employment", "statement", "scotiaStatement", "cibcStatement", "rbcStatement", "bmoStatement", "simpliiStatement", "noaStatement", "t4Slip", "bmoVoidCheck", "scotiaVoidCheck", "rbcVoidCheck", "tdVoidCheck", "cibcVoidCheck"];
   const normalized = validTypes.includes(type) ? type : "payroll";
   elements.documentTypeSelect.value = normalized;
   elements.payrollControls.classList.toggle("is-hidden", normalized !== "payroll");
@@ -1260,6 +1311,7 @@ function setDocumentType(type) {
   elements.cibcStatementControls.classList.toggle("is-hidden", normalized !== "cibcStatement");
   elements.rbcStatementControls.classList.toggle("is-hidden", normalized !== "rbcStatement");
   elements.bmoStatementControls.classList.toggle("is-hidden", normalized !== "bmoStatement");
+  elements.simpliiStatementControls.classList.toggle("is-hidden", normalized !== "simpliiStatement");
   elements.noaControls.classList.toggle("is-hidden", normalized !== "noaStatement");
   elements.t4Controls.classList.toggle("is-hidden", normalized !== "t4Slip");
   elements.bmoVoidControls.classList.toggle("is-hidden", normalized !== "bmoVoidCheck");
@@ -1274,6 +1326,7 @@ function setDocumentType(type) {
   elements.cibcReport.classList.toggle("is-hidden", normalized !== "cibcStatement");
   elements.rbcReport.classList.toggle("is-hidden", normalized !== "rbcStatement");
   elements.bmoReport.classList.toggle("is-hidden", normalized !== "bmoStatement");
+  elements.simpliiReport.classList.toggle("is-hidden", normalized !== "simpliiStatement");
   elements.noaReport.classList.toggle("is-hidden", normalized !== "noaStatement");
   const t4El = document.getElementById("t4Report");
   if (t4El) t4El.classList.toggle("is-hidden", normalized !== "t4Slip");
@@ -1291,6 +1344,7 @@ function getActiveDocumentNode() {
   if (getDocumentType() === "cibcStatement") return elements.cibcReport;
   if (getDocumentType() === "rbcStatement") return elements.rbcReport;
   if (getDocumentType() === "bmoStatement") return elements.bmoReport;
+  if (getDocumentType() === "simpliiStatement") return elements.simpliiReport;
   if (getDocumentType() === "noaStatement") return elements.noaReport;
   if (getDocumentType() === "t4Slip") return document.getElementById("t4Report");
   if (getDocumentType() === "bmoVoidCheck") return elements.bmoVoidReport;
@@ -1336,6 +1390,12 @@ function buildPdfFilename(data) {
     const person = slugify(data.bmoStatement?.name) || "account-holder";
     const period = slugify(data.bmoStatement?.periodEnd) || "period";
     return `bmo-statement-${person}-${period}.pdf`;
+  }
+  if (docType === "simpliiStatement") {
+    const person = slugify(data.simpliiStatement?.name) || "account-holder";
+    const from = slugify(data.simpliiStatement?.statementPeriodFrom) || "from";
+    const to = slugify(data.simpliiStatement?.statementPeriodTo) || "to";
+    return `simplii-statement-${person}-${from}-${to}.pdf`;
   }
   if (docType === "noaStatement") {
     const person = slugify(data.noaStatement?.name) || "taxpayer";
@@ -1487,6 +1547,7 @@ async function downloadPdf() {
   const isCibcExport = getDocumentType() === "cibcStatement";
   const isRbcExport = getDocumentType() === "rbcStatement";
   const isBmoExport = getDocumentType() === "bmoStatement";
+  const isSimpliiExport = getDocumentType() === "simpliiStatement";
   const isCompactThemeExport =
     getDocumentType() === "payroll" &&
     (data.designTemplate === "northern-mint" || data.designTemplate === "monochrome-ledger");
@@ -1541,6 +1602,12 @@ async function downloadPdf() {
 
     if (isBmoExport) {
       await saveBmoPdf(filename);
+      setSaveStatus(`Saved ${filename}`, "success");
+      return;
+    }
+
+    if (isSimpliiExport) {
+      await saveSimpliiPdf(filename);
       setSaveStatus(`Saved ${filename}`, "success");
       return;
     }
@@ -2025,6 +2092,154 @@ function writeBmoRows(tableBody, rows) {
   }
 }
 
+function buildSimpliiData(sfData) {
+  const openingBalance = toNumber(sfData.openingBalance);
+  const transactions = (sfData.transactions ?? []).map((row) => ({
+    transDate:   safeText(row?.transDate),
+    effDate:     safeText(row?.effDate),
+    description: safeText(row?.description),
+    fundsOut:    Math.max(0, toNumber(row?.fundsOut)),
+    fundsIn:     Math.max(0, toNumber(row?.fundsIn)),
+  }));
+
+  let runningBalance = openingBalance;
+  let totalFundsOut  = 0;
+  let totalFundsIn   = 0;
+
+  const renderedRows = transactions.map((row) => {
+    totalFundsOut  += row.fundsOut;
+    totalFundsIn   += row.fundsIn;
+    runningBalance += row.fundsIn - row.fundsOut;
+    return { ...row, balance: runningBalance };
+  });
+
+  return { openingBalance, renderedRows, totalFundsOut, totalFundsIn, closingBalance: runningBalance };
+}
+
+function renderSimpliiRows(target, rows) {
+  if (!target) return;
+  target.innerHTML = rows.map((row) => `
+    <tr>
+      <td class="si-date">${escapeAttr(row.transDate)}</td>
+      <td class="si-date">${escapeAttr(row.effDate)}</td>
+      <td>${escapeAttr(row.description)}</td>
+      <td class="si-right">${row.fundsOut > 0 ? formatMoney(row.fundsOut) : ''}</td>
+      <td class="si-right">${row.fundsIn  > 0 ? formatMoney(row.fundsIn)  : ''}</td>
+      <td class="si-right">${formatMoney(row.balance)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderSimpliiPreview(data) {
+  const sf     = data.simpliiStatement ?? {};
+  const layout = buildSimpliiData(sf);
+
+  // ── header / meta fields ──────────────────────────────────────────────────
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set('pvSfName',           sf.name ?? '');
+  set('pvSfAddress',        sf.address ?? '');
+  set('pvSfPeriodFrom',     sf.statementPeriodFrom ?? '');
+  set('pvSfPeriodFrom2',    sf.statementPeriodFrom ?? '');
+  set('pvSfPeriodTo',       sf.statementPeriodTo ?? '');
+  set('pvSfPeriodTo2',      sf.statementPeriodTo ?? '');
+  set('pvSfStatementDate',  sf.statementDate ?? '');
+  set('pvSfStatementDate2', sf.statementDate ?? '');
+  set('pvSfAccountNo1',     sf.accountNo ?? '');
+  set('pvSfAccountNo2',     sf.accountNo ?? '');
+  set('pvSfAccountNoEnd',   sf.accountNo ?? '');
+
+  // ── transaction rows ──────────────────────────────────────────────────────
+  const pvSfRows        = document.getElementById('pvSfRows');
+  const pvSfRowsP2      = document.getElementById('pvSfRowsP2');
+  const simpliiP2Overflow = document.getElementById('simpliiP2Overflow');
+
+  if (pvSfRows) {
+    const bfDate   = fmtShortDate(sf.statementPeriodFrom ?? '');
+    const balFwdRow = `<tr class="si-balance-forward-row">
+      <td class="si-date">${escapeAttr(bfDate)}</td>
+      <td class="si-date">${escapeAttr(bfDate)}</td>
+      <td>BALANCE FORWARD</td>
+      <td></td><td></td>
+      <td class="si-right">${formatMoney(layout.openingBalance)}</td>
+    </tr>`;
+
+    const MAX_PAGE1 = 16;
+    const MAX_PAGE2 = 5;
+    const p1Rows      = layout.renderedRows.slice(0, MAX_PAGE1);
+    const p2Rows      = layout.renderedRows.slice(MAX_PAGE1, MAX_PAGE1 + MAX_PAGE2);
+    const displayedRows = [...p1Rows, ...p2Rows];
+
+    const dispTotalOut = displayedRows.reduce((s, r) => s + r.fundsOut, 0);
+    const dispTotalIn  = displayedRows.reduce((s, r) => s + r.fundsIn,  0);
+    const dispClosing  = layout.openingBalance + dispTotalIn - dispTotalOut;
+
+    set('pvSfTotalOut',   formatMoney(dispTotalOut));
+    set('pvSfTotalIn',    formatMoney(dispTotalIn));
+    set('pvSfClosingBal', formatMoney(dispClosing));
+
+    const tempDiv1 = document.createElement('tbody');
+    renderSimpliiRows(tempDiv1, p1Rows);
+    pvSfRows.innerHTML = balFwdRow + tempDiv1.innerHTML;
+
+    if (pvSfRowsP2 && simpliiP2Overflow) {
+      if (p2Rows.length > 0) {
+        const tempDiv2 = document.createElement('tbody');
+        renderSimpliiRows(tempDiv2, p2Rows);
+        pvSfRowsP2.innerHTML = tempDiv2.innerHTML;
+        simpliiP2Overflow.classList.remove('is-hidden');
+      } else {
+        pvSfRowsP2.innerHTML = '';
+        simpliiP2Overflow.classList.add('is-hidden');
+      }
+    }
+  }
+}
+
+function saveSimpliiPdf(filename) {
+  return saveTwoPagePdf(filename, 'simpliiPage1', 'simpliiPage2', 'letter');
+}
+
+function addSimpliiRow(tableBody, data = {}) {
+  if (!tableBody) return;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input type="text" data-key="transDate" value="${escapeAttr(safeText(data.transDate))}" /></td>
+    <td><input type="text" data-key="effDate" value="${escapeAttr(safeText(data.effDate))}" /></td>
+    <td><input type="text" data-key="description" value="${escapeAttr(safeText(data.description))}" /></td>
+    <td><input type="number" step="0.01" data-key="fundsOut" value="${data.fundsOut ?? ''}" /></td>
+    <td><input type="number" step="0.01" data-key="fundsIn" value="${data.fundsIn ?? ''}" /></td>
+    <td class="row-actions">
+      <button class="duplicate-row" type="button">copy</button>
+      <button class="remove-row" type="button">x</button>
+    </td>
+  `;
+  tableBody.appendChild(row);
+}
+
+function readSimpliiRows(tableBody) {
+  const rows = [];
+  if (!tableBody) return rows;
+  for (const row of tableBody.querySelectorAll('tr')) {
+    const transDate   = safeText(row.querySelector('[data-key="transDate"]')?.value);
+    const effDate     = safeText(row.querySelector('[data-key="effDate"]')?.value);
+    const description = safeText(row.querySelector('[data-key="description"]')?.value);
+    const fundsOut    = Math.max(0, toNumber(row.querySelector('[data-key="fundsOut"]')?.value));
+    const fundsIn     = Math.max(0, toNumber(row.querySelector('[data-key="fundsIn"]')?.value));
+    if (!transDate && !effDate && !description && fundsOut === 0 && fundsIn === 0) continue;
+    rows.push({ transDate, effDate, description, fundsOut, fundsIn });
+  }
+  return rows;
+}
+
+function writeSimpliiRows(tableBody, rows) {
+  if (!tableBody) return;
+  tableBody.innerHTML = '';
+  for (const row of rows ?? []) {
+    addSimpliiRow(tableBody, row);
+  }
+}
+
 function getCurrentFormData() {
   return {
     documentType: getDocumentType(),
@@ -2115,6 +2330,16 @@ function getCurrentFormData() {
       periodEnd: safeText(elements.bmPeriodEnd.value),
       openingBalance: toNumber(elements.bmOpeningBalance.value),
       transactions: readBmoRows(elements.bmoTransactionsTable),
+    },
+    simpliiStatement: {
+      name: safeText(elements.sfName.value),
+      address: elements.sfAddress.value.trim(),
+      accountNo: safeText(elements.sfAccountNo.value),
+      statementPeriodFrom: safeText(elements.sfFrom.value),
+      statementPeriodTo: safeText(elements.sfTo.value),
+      statementDate: safeText(elements.sfStatementDate.value),
+      openingBalance: toNumber(elements.sfOpeningBalance.value),
+      transactions: readSimpliiRows(elements.simpliiTransactionsTable),
     },
     noaStatement: {
       name: safeText(elements.noaName.value),
@@ -2264,6 +2489,16 @@ function hydrateForm(data) {
   elements.bmPeriodEnd.value = bmo.periodEnd ?? "";
   elements.bmOpeningBalance.value = bmo.openingBalance ?? "";
   writeBmoRows(elements.bmoTransactionsTable, bmo.transactions ?? []);
+
+  const simplii = data.simpliiStatement ?? {};
+  elements.sfName.value = simplii.name ?? "";
+  elements.sfAddress.value = simplii.address ?? "";
+  elements.sfAccountNo.value = simplii.accountNo ?? "";
+  elements.sfFrom.value = simplii.statementPeriodFrom ?? "";
+  elements.sfTo.value = simplii.statementPeriodTo ?? "";
+  elements.sfStatementDate.value = simplii.statementDate ?? "";
+  elements.sfOpeningBalance.value = simplii.openingBalance ?? "";
+  writeSimpliiRows(elements.simpliiTransactionsTable, simplii.transactions ?? []);
 
   const noa = data.noaStatement ?? {};
   elements.noaName.value = noa.name ?? "";
@@ -4913,6 +5148,7 @@ function renderPreview() {
   renderCibcPreview(data);
   renderRbcPreview(data);
   renderBmoPreview(data);
+  renderSimpliiPreview(data);
   renderNoaPreview(data);
   renderT4Preview(data);
   renderBmoVoidPreview(data);
@@ -5049,6 +5285,8 @@ function exportJson() {
         ? "rbc-statement.json"
       : getDocumentType() === "bmoStatement"
         ? "bmo-statement.json"
+      : getDocumentType() === "simpliiStatement"
+        ? "simplii-statement.json"
       : getDocumentType() === "noaStatement"
         ? "noa-statement.json"
       : getDocumentType() === "t4Slip"
@@ -5097,6 +5335,8 @@ function attachTableEvents(tableBody, tableKind) {
         addRbcRow(tableBody, values);
       } else if (tableKind === "bmo") {
         addBmoRow(tableBody, values);
+      } else if (tableKind === "simplii") {
+        addSimpliiRow(tableBody, values);
       } else if (tableKind === "noa") {
         addNoaRow(tableBody, values);
       } else if (tableKind === "statement") {
@@ -5189,6 +5429,11 @@ function init() {
     renderPreview();
   });
 
+  elements.addSimpliiRowBtn.addEventListener("click", () => {
+    addSimpliiRow(elements.simpliiTransactionsTable, { transDate: "", effDate: "", description: "", fundsOut: "", fundsIn: "" });
+    renderPreview();
+  });
+
   elements.addNoaRowBtn.addEventListener("click", () => {
     addNoaRow(elements.noaSummaryTable, { line: "", description: "", amount: "", crdr: "" });
     renderPreview();
@@ -5201,6 +5446,7 @@ function init() {
   attachTableEvents(elements.cibcTransactionsTable, "cibc");
   attachTableEvents(elements.rbcTransactionsTable, "rbc");
   attachTableEvents(elements.bmoTransactionsTable, "bmo");
+  attachTableEvents(elements.simpliiTransactionsTable, "simplii");
   attachTableEvents(elements.noaSummaryTable, "noa");
 
   for (const field of [
@@ -5306,6 +5552,13 @@ function init() {
     elements.bmAccountType,
     elements.bmPeriodEnd,
     elements.bmOpeningBalance,
+    elements.sfName,
+    elements.sfAddress,
+    elements.sfAccountNo,
+    elements.sfFrom,
+    elements.sfTo,
+    elements.sfStatementDate,
+    elements.sfOpeningBalance,
   ]) {
     if (!field) continue;
     field.addEventListener("input", renderPreview);

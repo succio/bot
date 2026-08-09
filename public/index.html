@@ -52,6 +52,7 @@
           <option value="cibcStatement">CIBC Statement</option>
           <option value="rbcStatement">RBC Statement</option>
           <option value="bmoStatement">BMO Statement</option>
+          <option value="simpliiStatement">Simplii Statement</option>
           <option value="noaStatement">NOA</option>
           <option value="t4Slip">T4 Slip</option>
           <option value="bmoVoidCheck">BMO Void Cheque</option>
@@ -596,7 +597,29 @@ CALGARY AB T6M 0Y7</textarea>
   </div>
 </div>
 
-        <div id="noaControls" class="doc-section is-hidden">
+        <div id="simpliiStatementControls" class="doc-section is-hidden">
+  <h2>Simplii Statement</h2>
+  <label>Name<input id="sfName" type="text" /></label>
+  <label>Address (one line per row)<textarea id="sfAddress" rows="3"></textarea></label>
+  <label>Account No.<input id="sfAccountNo" type="text" /></label>
+  <div class="grid two">
+    <label>Statement From<input id="sfFrom" type="text" /></label>
+    <label>Statement To<input id="sfTo" type="text" /></label>
+  </div>
+  <label>Statement Date<input id="sfStatementDate" type="text" /></label>
+  <label>Opening balance<input id="sfOpeningBalance" type="number" step="0.01" /></label>
+  <h2>Transaction Rows</h2>
+  <p class="hint">Trans date, effective date, description, funds out, funds in. Balance is auto-calculated.</p>
+  <button id="addSimpliiRowBtn" type="button">+ Add Row</button>
+  <div class="table-wrap">
+    <table class="editor-table" id="simpliiTransactionsTable">
+      <thead><tr><th>Trans Date</th><th>Eff. Date</th><th>Description</th><th>Funds Out</th><th>Funds In</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="noaControls" class="doc-section is-hidden">
           <h2>Notice of Assessment (NOA)</h2>
           <label>
             Taxpayer name
@@ -1771,7 +1794,202 @@ If you have any questions about your assessment, please call our Individual Tax 
 
 </article>
 
-        <article class="noa-report is-hidden" id="noaReport">
+        
+<article class="simplii-report is-hidden" id="simpliiReport">
+
+  <!-- ============================================================ PAGE 1 -->
+  <section class="simplii-page" id="simpliiPage1">
+    <div class="simplii-header">
+      <div class="simplii-logo-text">Simplii Financial</div>
+      <div class="simplii-header-right">
+        <div class="simplii-account-title">your no fee chequing account</div>
+        <div class="simplii-info-block">
+          <span class="si-label">statement period:</span>
+          <span class="si-value">
+            <span id="pvSfPeriodFrom"></span> - <span id="pvSfPeriodTo"></span>
+          </span>
+          <span class="si-label">statement date:</span>
+          <span class="si-value" id="pvSfStatementDate"></span>
+          <span class="si-label">account number:</span>
+          <span class="si-value" id="pvSfAccountNo1"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="simplii-address-block">
+      <p class="simplii-address-name" id="pvSfName"></p>
+      <p class="simplii-address-lines" id="pvSfAddress"></p>
+    </div>
+
+    <div class="simplii-details-heading">details</div>
+    <table class="simplii-ledger">
+      <thead>
+        <tr>
+          <th>trans.<br>date</th>
+          <th>eff.<br>date</th>
+          <th>transaction</th>
+          <th class="si-right">funds out</th>
+          <th class="si-right">funds in</th>
+          <th class="si-right">balance</th>
+        </tr>
+      </thead>
+      <tbody id="pvSfRows"></tbody>
+    </table>
+
+    <div class="simplii-page-footer">
+      <div class="simplii-page-num">
+        <span>page 1 of 2</span>
+        <span>7010CA-2024/09-INT</span>
+      </div>
+      <div class="simplii-legal-footer">
+        <div class="sf-left">
+          <div>"SIMPLII FINANCIAL" and the SIMPLII FINANCIAL DESIGNS are trademarks of CIBC.</div>
+          <div>"Simplii Financial" is a division of CIBC. Banking services are not available in Quebec.</div>
+        </div>
+        <div class="sf-right">
+          <div>PO Box 603, STN Agincourt, Scarborough ON M1S 5K9</div>
+          <div>1-888-723-8881 &nbsp; simplii.com</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PAGE 2 -->
+  <section class="simplii-page simplii-page-break" id="simpliiPage2">
+    <div class="simplii-p2-header">
+      <div class="simplii-logo-text">Simplii Financial</div>
+      <div class="simplii-header-right">
+        <div class="simplii-account-title">your no fee chequing account (cont'd)</div>
+        <div class="simplii-info-block">
+          <span class="si-label">statement period:</span>
+          <span class="si-value">
+            <span id="pvSfPeriodFrom2"></span> - <span id="pvSfPeriodTo2"></span>
+          </span>
+          <span class="si-label">statement date:</span>
+          <span class="si-value" id="pvSfStatementDate2"></span>
+          <span class="si-label">account number:</span>
+          <span class="si-value" id="pvSfAccountNo2"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overflow rows (hidden when all transactions fit on page 1) -->
+    <div id="simpliiP2Overflow" class="is-hidden">
+      <table class="simplii-ledger simplii-overflow-table">
+        <thead>
+          <tr>
+            <th>trans.<br>date</th>
+            <th>eff.<br>date</th>
+            <th>transaction</th>
+            <th class="si-right">funds out</th>
+            <th class="si-right">funds in</th>
+            <th class="si-right">balance</th>
+          </tr>
+        </thead>
+        <tbody id="pvSfRowsP2"></tbody>
+      </table>
+    </div>
+
+    <div class="simplii-end-of-tx">end of transactions</div>
+
+    <table class="simplii-totals">
+      <tbody>
+        <tr>
+          <td>total funds out</td>
+          <td></td><td></td>
+          <td class="si-right" id="pvSfTotalOut"></td>
+          <td></td><td></td>
+        </tr>
+        <tr>
+          <td>total funds in</td>
+          <td></td><td></td>
+          <td></td>
+          <td class="si-right" id="pvSfTotalIn"></td>
+          <td></td>
+        </tr>
+        <tr class="si-closing-row">
+          <td>closing balance</td>
+          <td></td><td></td>
+          <td></td><td></td>
+          <td class="si-right" id="pvSfClosingBal"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="simplii-end-line">
+      end of your no fee chequing account &nbsp;<span id="pvSfAccountNoEnd"></span>&nbsp; information
+    </div>
+
+    <div class="simplii-please-note">
+      <h3>Please note</h3>
+      <p>This statement includes all entries available at the time of processing.</p>
+      <p>Please review your statement. If you have any questions about a transaction on your
+      statement, please contact us anytime. For Personal Lines of Credit, if you believe
+      there's an error on your statement, you must contact us within 30 days of the statement
+      date. For savings accounts, if you believe there's an error on your statement, you must
+      contact us within 90 days of any transaction date (or the date the transaction would have
+      occurred). To review the terms and conditions that apply to your statement, please refer
+      to the "Simplii Financial Products and Services Agreement".</p>
+      <p><strong>Interest Charges</strong> - Interest (including interest on charges and
+      insurance premiums, if applicable) is calculated on the daily closing balance of your
+      account and accrues from the date a transaction is made (i.e., the "eff. date"). The
+      "trans. date" is the date when the transaction was posted to your account and may vary
+      from the "eff. date".</p>
+      <p><strong>Monthly Interest Calculation</strong> - Take the account balance at the end
+      of each day, multiply it by the interest rate applicable on that specific date, and
+      divide the result by 365. The total monthly interest is calculated by adding the
+      interest amounts for each day within the statement period. On the statement period end
+      date, all accrued interest is posted to your account. For Lines of Credit, unpaid
+      interest will compound until all indebtedness is repaid.</p>
+    </div>
+
+    <p style="font-size:7.5pt; margin-bottom:6px;">The following are examples of how interest
+    is charged on a $1,000 balance outstanding for a 30-day month:</p>
+
+    <table class="simplii-interest-table">
+      <thead>
+        <tr>
+          <th>Interest Rate</th>
+          <th>Monthly Interest Calculation</th>
+          <th>Interest Rate</th>
+          <th>Monthly Interest Calculation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>6.00%</td><td>$4.93</td><td>10.00%</td><td>$8.22</td></tr>
+        <tr><td>7.00%</td><td>$5.75</td><td>11.00%</td><td>$9.04</td></tr>
+        <tr><td>8.00%</td><td>$6.58</td><td>12.00%</td><td>$9.86</td></tr>
+        <tr><td>9.00%</td><td>$7.40</td><td>13.00%</td><td>$10.69</td></tr>
+      </tbody>
+    </table>
+
+    <p style="font-size:7.5pt; margin-top:8px;">Even in a leap year, interest is calculated by
+    multiplying the then-outstanding principal amount by the current interest rate in effect at
+    the applicable time, dividing the product by 365 and multiplying the result by the number of
+    days in the payment period during which such current interest rate was chargeable.</p>
+
+    <div class="simplii-page-footer">
+      <div class="simplii-page-num">
+        <span>page 2 of 2</span>
+        <span>7010CA-2024/09-INT</span>
+      </div>
+      <div class="simplii-legal-footer">
+        <div class="sf-left">
+          <div>"SIMPLII FINANCIAL" and the SIMPLII FINANCIAL DESIGNS are trademarks of CIBC.</div>
+          <div>"Simplii Financial" is a division of CIBC. Banking services are not available in Quebec.</div>
+        </div>
+        <div class="sf-right">
+          <div>PO Box 603, STN Agincourt, Scarborough ON M1S 5K9</div>
+          <div>1-888-723-8881 &nbsp; simplii.com</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</article>
+
+
+<article class="noa-report is-hidden" id="noaReport">
           <section class="noa-page noa-page-one" id="noaPage1">
             <div class="noa-header">
               <div class="noa-cra-brand">

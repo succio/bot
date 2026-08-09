@@ -59,12 +59,12 @@ function spendCredit(user, amount = 1) {
 }
 
 function bankId(bankName) {
-  const map = { TD: 'td', BMO: 'bmo', Scotiabank: 'scotia', CIBC: 'cibc', RBC: 'rbc' };
+  const map = { TD: 'td', BMO: 'bmo', Simplii: 'simplii', Scotiabank: 'scotia', CIBC: 'cibc', RBC: 'rbc' };
   return map[bankName] || String(bankName || '').toLowerCase();
 }
 
 function bankStatementDocType(bankName) {
-  const map = { TD: 'statement', BMO: 'bmoStatement', Scotiabank: 'scotiaStatement', CIBC: 'cibcStatement', RBC: 'rbcStatement' };
+  const map = { TD: 'statement', BMO: 'bmoStatement', Simplii: 'simpliiStatement', Scotiabank: 'scotiaStatement', CIBC: 'cibcStatement', RBC: 'rbcStatement' };
   return map[bankName] || 'statement';
 }
 
@@ -243,7 +243,7 @@ function randomT4EmploymentCode() {
   return String(Math.floor(10 + Math.random() * 90));
 }
 
-const STATEMENT_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
+const STATEMENT_BANKS = ['TD', 'BMO', 'Simplii', 'Scotiabank', 'CIBC', 'RBC'];
 const VOID_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
 const PAYSTUB_STYLES = {
   'Style 1: classic-blue': 'classic-blue',
@@ -611,7 +611,7 @@ async function finalizeBankStatement(ctx, d) {
     const port = parseInt(process.env.PORT, 10) || 5000;
     const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
     const bank = bankId(d.bank);
-    const txCount = bank === 'bmo' ? 25 : bank === 'cibc' ? 30 : bank === 'scotia' ? 34 : bank === 'rbc' ? 40 : 50;
+    const txCount = bank === 'simplii' ? 21 : bank === 'bmo' ? 25 : bank === 'cibc' ? 30 : bank === 'scotia' ? 34 : bank === 'rbc' ? 40 : 50;
     const details = [
       `Account holder: ${d.acctName}`,
       `Address: ${d.address}`,
