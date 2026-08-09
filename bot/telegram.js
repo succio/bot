@@ -11,6 +11,13 @@ bot.use(session());
 
 const MIN_TOPUP_USD = 35;
 const MAX_TOPUP_USD = 10000;
+const TOPUP_CURRENCIES = [
+  { label: 'BTC', value: 'btc' },
+  { label: 'ETH', value: 'eth' },
+  { label: 'USDT TRC20', value: 'usdttrc20' },
+  { label: 'USDT ERC20', value: 'usdterc20' },
+  { label: 'LTC', value: 'ltc' }
+];
 
 const generationQueue = new JobQueue({
   concurrency: parseInt(process.env.PDF_CONCURRENCY, 10) || 1,
@@ -92,28 +99,60 @@ function notEnoughBalanceMessage(user, label, amount) {
   return `❌ Not enough balance. ${label} costs *${formatUsd(amount)}*. Your balance is *${formatUsd(getBalance(user))}*.`;
 }
 
-async function createTopupInvoice(ctx, amount, packageId = null, label = null) {
-  const me = await bot.telegram.getMe();
+function topupCurrencyKeyboard() {
+  return Markup.inlineKeyboard(TOPUP_CURRENCIES.map((currency) => [
+    Markup.button.callback(currency.label, `paycur:${currency.value}`)
+  ]));
+}
+
+function topupCurrencyLabel(value) {
+  return TOPUP_CURRENCIES.find((currency) => currency.value === value)?.label || String(value || '').toUpperCase();
+}
+
+async function createTopupPayment(ctx, amount, payCurrency, packageId = null, label = null) {
   const cents = Math.round(Number(amount) * 100);
   const orderId = packageId
     ? `tg-${ctx.from.id}-${packageId}-${Date.now()}`
     : `tg-${ctx.from.id}-custom-${cents}-${Date.now()}`;
 
   const response = await axios.post(
-    'https://api.nowpayments.io/v1/invoice',
+    'https://api.nowpayments.io/v1/payment',
     {
       price_amount: amount,
       price_currency: 'usd',
+      pay_currency: payCurrency,
       order_id: orderId,
       order_description: `${label || 'Custom Balance Top Up'} for Telegram user ${ctx.from.id}`,
-      ipn_callback_url: `${process.env.APP_URL}/api/payments/ipn`,
-      success_url: `https://t.me/${me.username}`,
-      cancel_url: `https://t.me/${me.username}`,
+      ipn_callback_url: `${process.env.APP_URL}/api/payments/ipn`
     },
     { headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY, 'Content-Type': 'application/json' } }
   );
 
-  return response.data.invoice_url;
+  return response.data;
+}
+
+async function sendTopupPayment(ctx, payment, amount, payCurrency) {
+  const address = payment.pay_address || payment.payin_address || payment.address;
+  const payAmount = payment.pay_amount || payment.amount;
+  const paymentId = payment.payment_id || payment.id || 'pending';
+  if (!address || !payAmount) throw new Error('NOWPayments response did not include payment address or amount.');
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(address)}`;
+
+  await ctx.replyWithPhoto(
+    qrUrl,
+    {
+      caption:
+        `💳 *Payment Request Created*\n\n` +
+        `Top up amount: *${formatUsd(amount)} USD*\n` +
+        `Send exactly: \`${payAmount}\` ${topupCurrencyLabel(payCurrency)}\n\n` +
+        `Wallet address:\n\`${address}\`\n\n` +
+        `Payment ID: \`${paymentId}\`\n\n` +
+        `Your balance updates automatically after the payment is confirmed.`,
+      parse_mode: 'Markdown',
+      ...mainMenu()
+    }
+  );
 }
 
 function bankId(bankName) {
@@ -396,17 +435,43 @@ bot.action(/^buy:(.+)$/, async (ctx) => {
   const pkg = PACKAGES[packageId];
   if (!pkg) return ctx.reply('Unknown package.');
 
+  const sess = initSession(ctx);
+  sess.flow = 'topup_currency';
+  sess.step = 'currency';
+  sess.data = {
+    amount: Number(pkg.amount || pkg.price),
+    packageId,
+    label: pkg.name
+  };
+
+  return ctx.reply(
+    `Choose payment currency for *${formatUsd(sess.data.amount)} USD*:`,
+    { parse_mode: 'Markdown', ...topupCurrencyKeyboard() }
+  );
+});
+
+bot.action(/^paycur:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const sess = initSession(ctx);
+  if (sess.flow !== 'topup_currency' || !sess.data?.amount) {
+    return ctx.reply('Please press Add Balance and choose an amount first.', mainMenu());
+  }
+
+  const payCurrency = ctx.match[1];
+  const allowed = TOPUP_CURRENCIES.some((currency) => currency.value === payCurrency);
+  if (!allowed) return ctx.reply('Please choose one of the listed payment currencies.');
+
+  const { amount, packageId, label } = sess.data;
+  sess.flow = null;
+  sess.step = null;
+  sess.data = {};
+
   try {
-    const invoiceUrl = await createTopupInvoice(ctx, pkg.price, packageId, pkg.name);
-    await ctx.reply(
-      `💳 *${pkg.name}* — $${pkg.price} USD\n\n` +
-      `Click the link below to pay with crypto. Once confirmed, *${formatUsd(pkg.amount || pkg.price)} USD* will be added to your account automatically.\n\n` +
-      `🔗 [Pay Now](${invoiceUrl})`,
-      { parse_mode: 'Markdown' }
-    );
+    const payment = await createTopupPayment(ctx, amount, payCurrency, packageId, label);
+    return sendTopupPayment(ctx, payment, amount, payCurrency);
   } catch (err) {
-    console.error('Bot invoice error:', err.response?.data || err.message);
-    await ctx.reply('⚠️ Could not create payment link. Please try again later.');
+    console.error('Bot direct payment error:', err.response?.data || err.message);
+    return ctx.reply('⚠️ Could not create payment details. Please try again later.', mainMenu());
   }
 });
 
@@ -461,22 +526,18 @@ bot.on('text', async (ctx) => {
     if (amount < MIN_TOPUP_USD) return ctx.reply(`Minimum amount is ${formatUsd(MIN_TOPUP_USD)}. Enter a higher amount:`);
     if (amount > MAX_TOPUP_USD) return ctx.reply(`Maximum amount is ${formatUsd(MAX_TOPUP_USD)}. Enter a lower amount:`);
 
-    sess.flow = null;
-    sess.step = null;
-    sess.data = {};
+    sess.flow = 'topup_currency';
+    sess.step = 'currency';
+    sess.data = {
+      amount,
+      packageId: null,
+      label: `Custom ${formatUsd(amount)} Balance Top Up`
+    };
 
-    try {
-      const invoiceUrl = await createTopupInvoice(ctx, amount, null, `Custom ${formatUsd(amount)} Balance Top Up`);
-      return ctx.reply(
-        `💳 *Custom Top Up* — ${formatUsd(amount)} USD\n\n` +
-        `Click the link below to pay with crypto. Once confirmed, *${formatUsd(amount)} USD* will be added to your account automatically.\n\n` +
-        `🔗 [Pay Now](${invoiceUrl})`,
-        { parse_mode: 'Markdown', ...mainMenu() }
-      );
-    } catch (err) {
-      console.error('Bot custom invoice error:', err.response?.data || err.message);
-      return ctx.reply('⚠️ Could not create payment link. Please try again later.', mainMenu());
-    }
+    return ctx.reply(
+      `Choose payment currency for *${formatUsd(amount)} USD*:`,
+      { parse_mode: 'Markdown', ...topupCurrencyKeyboard() }
+    );
   }
 
   if (sess.flow !== 'generate') return;
