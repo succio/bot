@@ -222,6 +222,11 @@ function randomT4EmploymentCode() {
 
 const STATEMENT_BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
 const VOID_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
+const PAYSTUB_STYLES = {
+  'Style 1: classic-blue': 'classic-blue',
+  'Style 2: northern-mint': 'northern-mint',
+  'Style 3: prairie-sand': 'prairie-sand',
+};
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
 
 // ─── /start ───────────────────────────────────────────────────────────────────
@@ -525,6 +530,15 @@ bot.on('text', async (ctx) => {
       if (!['Monthly', 'Biweekly'].includes(text)) return ctx.reply('Please choose Monthly or Biweekly.');
       d.frequency = text.toLowerCase();
       d.province = provinceFromAddress(d.address);
+      sess.step = 'paystub_style';
+      return ctx.reply('Choose paystub style:', Markup.keyboard([
+        ...Object.keys(PAYSTUB_STYLES).map((label) => [label]),
+        ['❌ Cancel']
+      ]).resize());
+    }
+    if (sess.step === 'paystub_style') {
+      if (!PAYSTUB_STYLES[text]) return ctx.reply('Please choose Style 1, Style 2, or Style 3.');
+      d.designTemplate = PAYSTUB_STYLES[text];
       sess.step = 'paystub_paydate';
       return ctx.reply('Pay date (YYYY-MM-DD, e.g. 2025-01-31):', Markup.keyboard([['❌ Cancel']]).resize());
     }
@@ -791,7 +805,7 @@ async function finalizePaystub(ctx, d) {
       brandText: d.employer.split(' ')[0].toUpperCase(),
       brandColor: '#1a3a6b',
       payrollLogoDataUrl: '',
-      designTemplate: 'classic-blue',
+      designTemplate: d.designTemplate || 'classic-blue',
       periodEnding: periodEndStr,
       payDate: d.payDate,
       province: d.province,
