@@ -325,7 +325,7 @@ RULE 6 — REALISTIC VARIETY: Use a natural mix across the month — groceries, 
 
 RULE 7 — FILLER MERCHANT FORMAT (by bank):
   TD statement: use format "OPOS MERCHANT CITY SUFFIX" or "APOS MERCHANT CITY SUFFIX" for debit card purchases
-  Scotia: use "Opos Merchant City SUFFIX" / "Apos Merchant City SUFFIX" with realistic detail fields
+  Scotia: use short transaction types in "description" such as "Purchase", "Direct Deposit", "Online payment to", "Withdrawal", or "Interac e-Transfer from". Put the merchant/reference in "detail" such as "Loblaws Toronto ON". Do NOT use OPOS/APOS in Scotia statements.
   CIBC/RBC: use clean merchant names with city and suffix
 
 === DEFAULTS ===
@@ -603,8 +603,20 @@ function localAreaFromDetails(details) {
 function requestedTransactionCount(bank, details) {
   const match = String(details || '').match(/Number of Transactions:\s*(\d+)/i);
   const count = match ? parseInt(match[1], 10) : 50;
-  if (bank === 'scotia') return Math.min(count, 36);
+  if (bank === 'scotia') return Math.min(count, 34);
   return bank === 'cibc' ? Math.min(count, 30) : count;
+}
+
+function titleCaseMerchant(text) {
+  return String(text || '')
+    .replace(/\b(ONCA|ABCA|BCCA|QCCA|SKCA|MBCA|NSCA|NBCA|NLCA|PECA)\b/g, (m) => m.slice(0, 2))
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+    .replace(/\bTtc\b/g, 'TTC')
+    .replace(/\bPresto\b/g, 'PRESTO')
+    .replace(/\bLcbo\b/g, 'LCBO')
+    .replace(/\bAtco\b/g, 'ATCO')
+    .replace(/\bEnmax\b/g, 'ENMAX');
 }
 
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
@@ -643,7 +655,9 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
     const amount = FILLER_AMOUNTS[i % FILLER_AMOUNTS.length];
     if (bank === 'td') {
       fillers.push({ description: `OPOS ${merchant}`, debit: amount, credit: 0, date: `${mu}${dayStr}` });
-    } else if (bank === 'scotia' || bank === 'cibc') {
+    } else if (bank === 'scotia') {
+      fillers.push({ date: `${ms} ${day}`, description: 'Purchase', detail: titleCaseMerchant(merchant), withdrawn: amount, deposited: 0 });
+    } else if (bank === 'cibc') {
       fillers.push({ date: `${ms} ${day}`, description: merchant, detail: '', withdrawn: amount, deposited: 0 });
     } else if (bank === 'rbc') {
       fillers.push({ date: `${dayStr} ${ms}`, description: merchant, withdrawn: amount, deposited: 0 });

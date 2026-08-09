@@ -1279,39 +1279,41 @@ If you have any questions about your assessment, please call our Individual Tax 
                 <p class="scotia-small">scotiabank.com</p>
               </div>
             </div>
-            <div class="scotia-summary">
-              <h3><span id="pvScAccountType1"></span> account summary</h3>
-              <div class="scotia-summary-row">
-                <span>Opening Balance on <span id="pvScFromTo1"></span></span>
-                <span id="pvScOpeningBal"></span>
+            <div class="scotia-main-column">
+              <div class="scotia-summary">
+                <h3><span id="pvScAccountType1"></span> account summary</h3>
+                <div class="scotia-summary-row">
+                  <span>Opening Balance on <span id="pvScFromTo1"></span></span>
+                  <span id="pvScOpeningBal"></span>
+                </div>
+                <div class="scotia-summary-row scotia-indent">
+                  <span>Minus total withdrawals</span>
+                  <span id="pvScTotalWithdrawals"></span>
+                </div>
+                <div class="scotia-summary-row scotia-indent">
+                  <span>Plus total deposits</span>
+                  <span id="pvScTotalDeposits"></span>
+                </div>
+                <div class="scotia-summary-row scotia-bold">
+                  <span>Closing Balance on <span id="pvScClosingDate1"></span></span>
+                  <span id="pvScClosingBal"></span>
+                </div>
               </div>
-              <div class="scotia-summary-row scotia-indent">
-                <span>Minus total withdrawals</span>
-                <span id="pvScTotalWithdrawals"></span>
-              </div>
-              <div class="scotia-summary-row scotia-indent">
-                <span>Plus total deposits</span>
-                <span id="pvScTotalDeposits"></span>
-              </div>
-              <div class="scotia-summary-row scotia-bold">
-                <span>Closing Balance on <span id="pvScClosingDate1"></span></span>
-                <span id="pvScClosingBal"></span>
-              </div>
+              <h3 class="scotia-section-title">Here's what happened in your account this statement period</h3>
+              <table class="scotia-ledger">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Transactions</th>
+                    <th>Amounts withdrawn ($)</th>
+                    <th>Amounts deposited ($)</th>
+                    <th>Balance ($)</th>
+                  </tr>
+                </thead>
+                <tbody id="pvScRowsPage1"></tbody>
+              </table>
+              <p class="scotia-continued"><em>continued on next page</em></p>
             </div>
-            <h3 class="scotia-section-title">Here's what happened in your account this statement period</h3>
-            <table class="scotia-ledger">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Transactions</th>
-                  <th>Amounts withdrawn ($)</th>
-                  <th>Amounts deposited ($)</th>
-                  <th>Balance ($)</th>
-                </tr>
-              </thead>
-              <tbody id="pvScRowsPage1"></tbody>
-            </table>
-            <p class="scotia-continued"><em>continued on next page</em></p>
             <p class="scotia-page-number">Page 1 of 2</p>
           </section>
 
@@ -1327,19 +1329,21 @@ If you have any questions about your assessment, please call our Individual Tax 
               <span id="pvScFromTo2"></span> &mdash;
               Account: <span id="pvScAccountNo2"></span>
             </div>
-            <h3 class="scotia-section-title">Here's what happened in your account (continued)</h3>
-            <table class="scotia-ledger">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Transactions</th>
-                  <th>Amounts withdrawn ($)</th>
-                  <th>Amounts deposited ($)</th>
-                  <th>Balance ($)</th>
-                </tr>
-              </thead>
-              <tbody id="pvScRowsPage2"></tbody>
-            </table>
+            <div class="scotia-main-column">
+              <h3 class="scotia-section-title">Here's what happened in your account (continued)</h3>
+              <table class="scotia-ledger">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Transactions</th>
+                    <th>Amounts withdrawn ($)</th>
+                    <th>Amounts deposited ($)</th>
+                    <th>Balance ($)</th>
+                  </tr>
+                </thead>
+                <tbody id="pvScRowsPage2"></tbody>
+              </table>
+            </div>
             <p class="scotia-page-number">Page 2 of 2</p>
           </section>
         </article>

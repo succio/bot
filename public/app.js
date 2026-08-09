@@ -2319,15 +2319,9 @@ function renderStatementRows(target, rows) {
 
 function buildScotiaPages(scotiaData) {
   const openingBalance = toNumber(scotiaData.openingBalance);
-  const transactions = (scotiaData.transactions ?? []).slice(0, 36).map((row) => ({
-    date: safeText(row?.date),
-    description: safeText(row?.description),
-    detail: safeText(row?.detail),
-    withdrawn: Math.max(0, toNumber(row?.withdrawn)),
-    deposited: Math.max(0, toNumber(row?.deposited)),
-  }));
+  const transactions = (scotiaData.transactions ?? []).slice(0, 34).map(normalizeScotiaTransaction);
 
-  const rowsPerPage = 15;
+  const rowsPerPage = 14;
   const page1Transactions = transactions.slice(0, rowsPerPage);
   const page2Transactions = transactions.slice(rowsPerPage);
 
@@ -2355,6 +2349,52 @@ function buildScotiaPages(scotiaData) {
     totalDeposits,
     closingBalance,
     balanceAfterPage1,
+  };
+}
+
+function formatScotiaDate(date) {
+  return safeText(date).replace(/^([A-Za-z]{3})\s+0?(\d{1,2})$/, (_, mon, day) => `${mon}${String(day).padStart(2, "0")}`);
+}
+
+function formatScotiaMerchantDetail(text) {
+  return safeText(text)
+    .replace(/\b(ONCA|ABCA|BCCA|QCCA|SKCA|MBCA|NSCA|NBCA|NLCA|PECA)\b/gi, (m) => m.slice(0, 2).toUpperCase())
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+    .replace(/\bTtc\b/g, "TTC")
+    .replace(/\bPresto\b/g, "PRESTO")
+    .replace(/\bLcbo\b/g, "LCBO")
+    .replace(/\bAtco\b/g, "ATCO")
+    .replace(/\bEnmax\b/g, "ENMAX")
+    .replace(/\bInc\b/g, "Inc")
+    .replace(/\bLtd\b/g, "Ltd");
+}
+
+function normalizeScotiaTransaction(row) {
+  const withdrawn = Math.max(0, toNumber(row?.withdrawn));
+  const deposited = Math.max(0, toNumber(row?.deposited));
+  let description = safeText(row?.description);
+  let detail = safeText(row?.detail);
+  const combined = [description, detail].filter(Boolean).join(" ");
+
+  if (deposited > 0 && /payroll|direct\s*deposit/i.test(combined)) {
+    description = "Direct Deposit";
+    detail = detail || description;
+    detail = combined.replace(/\b(OPOS|APOS)\b/gi, "").trim();
+  } else if (/^(OPOS|APOS)\b/i.test(description)) {
+    description = "Purchase";
+    detail = formatScotiaMerchantDetail(description.replace(/^(OPOS|APOS)\s+/i, ""));
+  } else if (/purchase/i.test(description)) {
+    description = "Purchase";
+    detail = formatScotiaMerchantDetail(detail);
+  }
+
+  return {
+    date: formatScotiaDate(row?.date),
+    description,
+    detail,
+    withdrawn,
+    deposited,
   };
 }
 
