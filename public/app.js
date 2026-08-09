@@ -2492,7 +2492,7 @@ async function saveScotiaPdf(filename) {
 
 function buildCibcPages(cibcData) {
   const openingBalance = toNumber(cibcData.openingBalance);
-  const transactions = (cibcData.transactions ?? []).map((row) => ({
+  const transactions = (cibcData.transactions ?? []).slice(0, 30).map((row) => ({
     date: safeText(row?.date),
     description: safeText(row?.description),
     detail: safeText(row?.detail),

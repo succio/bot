@@ -600,6 +600,12 @@ function localAreaFromDetails(details) {
   return '';
 }
 
+function requestedTransactionCount(bank, details) {
+  const match = String(details || '').match(/Number of Transactions:\s*(\d+)/i);
+  const count = match ? parseInt(match[1], 10) : 50;
+  return bank === 'cibc' ? Math.min(count, 30) : count;
+}
+
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
   if (txs.length >= targetCount) return txs;
   const needed = targetCount - txs.length;
@@ -657,9 +663,7 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const monthLabel = `${MONTH_FULL[month - 1]} ${year}`;
   const ord = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'][idx] || `${idx+1}th`;
 
-  // Extract transaction count from details (default 50)
-  const txCountMatch = details.match(/Number of Transactions:\s*(\d+)/i);
-  const txCount = txCountMatch ? parseInt(txCountMatch[1]) : 50;
+  const txCount = requestedTransactionCount(bank, details);
 
   // Extract province from details for explicit reinforcement
   const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
@@ -725,8 +729,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       catch { return res.status(500).json({ error: `AI returned malformed JSON on month ${i + 1}.` }); }
 
       // Extract transaction count and province from details for padding
-      const txCountMatch = details.match(/Number of Transactions:\s*(\d+)/i);
-      const targetTxCount = txCountMatch ? parseInt(txCountMatch[1]) : 50;
+      const targetTxCount = requestedTransactionCount(bank, details);
       const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
       const province = provinceMatch ? provinceMatch[1].toUpperCase() : 'ON';
       const localArea = localAreaFromDetails(details);

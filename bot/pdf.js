@@ -223,6 +223,19 @@ async function generatePdf(presetData) {
         `;
         document.head.appendChild(style);
       }
+
+      if (type === 'cibcStatement') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: A4; margin: 0; }
+          html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow-x: hidden !important; }
+          #cibcReport { display: block !important; width: 210mm !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+          #cibcReport .cibc-page { width: 210mm !important; height: 297mm !important; min-height: 0 !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; overflow: hidden !important; break-after: page !important; page-break-after: always !important; }
+          #cibcReport .cibc-page:last-child { break-after: auto !important; page-break-after: auto !important; }
+          #cibcReport .cibc-page-break { break-before: auto !important; page-break-before: auto !important; }
+        `;
+        document.head.appendChild(style);
+      }
     }, docType);
 
     const visibleReport = await page.evaluate(() => {

@@ -610,6 +610,7 @@ async function finalizeBankStatement(ctx, d) {
   try {
     const port = parseInt(process.env.PORT, 10) || 5000;
     const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
+    const txCount = bankId(d.bank) === 'cibc' ? 30 : 50;
     const details = [
       `Account holder: ${d.acctName}`,
       `Address: ${d.address}`,
@@ -624,7 +625,7 @@ async function finalizeBankStatement(ctx, d) {
       `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,
       'Transaction description rule: Use local merchant descriptions based on the address provided. Toronto addresses must use Toronto-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions. Calgary addresses must use Calgary-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions.',
       `Province: ${provinceFromAddress(d.address)}`,
-      'Number of Transactions: 50'
+      `Number of Transactions: ${txCount}`
     ].join('\n');
     const resp = await axios.post(`${appUrl}/api/generate/bank-package`, {
       bank: bankId(d.bank),
