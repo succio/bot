@@ -1987,6 +1987,44 @@ async function saveBmoPdf(filename) {
   return saveTwoPagePdf(filename, "bmoPage1", "bmoPage2", "letter");
 }
 
+function addBmoRow(tableBody, data = {}) {
+  if (!tableBody) return;
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input type="text" data-key="date" value="${escapeAttr(safeText(data.date))}" /></td>
+    <td><input type="text" data-key="description" value="${escapeAttr(safeText(data.description))}" /></td>
+    <td><input type="number" step="0.01" data-key="deducted" value="${data.deducted ?? ""}" /></td>
+    <td><input type="number" step="0.01" data-key="added" value="${data.added ?? ""}" /></td>
+    <td class="row-actions">
+      <button class="duplicate-row" type="button">copy</button>
+      <button class="remove-row" type="button">x</button>
+    </td>
+  `;
+  tableBody.appendChild(row);
+}
+
+function readBmoRows(tableBody) {
+  const rows = [];
+  if (!tableBody) return rows;
+  for (const row of tableBody.querySelectorAll("tr")) {
+    const date = safeText(row.querySelector('[data-key="date"]')?.value);
+    const description = safeText(row.querySelector('[data-key="description"]')?.value);
+    const deducted = Math.max(0, toNumber(row.querySelector('[data-key="deducted"]')?.value));
+    const added = Math.max(0, toNumber(row.querySelector('[data-key="added"]')?.value));
+    if (!date && !description && deducted === 0 && added === 0) continue;
+    rows.push({ date, description, deducted, added });
+  }
+  return rows;
+}
+
+function writeBmoRows(tableBody, rows) {
+  if (!tableBody) return;
+  tableBody.innerHTML = "";
+  for (const row of rows ?? []) {
+    addBmoRow(tableBody, row);
+  }
+}
+
 function getCurrentFormData() {
   return {
     documentType: getDocumentType(),
