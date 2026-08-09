@@ -1,11 +1,8 @@
 const puppeteer = require('puppeteer');
 const jwt = require('jsonwebtoken');
 
-let browserInstance = null;
-
 async function getBrowser() {
-  if (browserInstance && browserInstance.connected) return browserInstance;
-  browserInstance = await puppeteer.launch({
+  return puppeteer.launch({
     headless: 'new',
     args: [
       '--no-sandbox',
@@ -14,11 +11,9 @@ async function getBrowser() {
       '--disable-gpu',
       '--no-first-run',
       '--no-zygote',
-      '--single-process'
+      '--disable-extensions'
     ]
   });
-  browserInstance.on('disconnected', () => { browserInstance = null; });
-  return browserInstance;
 }
 
 function getRenderToken() {
@@ -115,7 +110,8 @@ async function generatePdf(presetData) {
     return pdfBuf;
 
   } finally {
-    await page.close();
+    await page.close().catch(() => {});
+    await browser.close().catch(() => {});
   }
 }
 
