@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const { users, scheduleSave } = require('../lib/store');
 const { JobQueue } = require('../lib/jobQueue');
 const { generatePdf } = require('./pdf');
-const { PACKAGES } = require('../routes/payments-shared');
+const { PACKAGES, DOCUMENT_PRICES, PRICE_LABELS } = require('../routes/payments-shared');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 bot.use(session());
@@ -29,6 +29,8 @@ function getOrCreateTgUser(ctx) {
       email: key,
       password: '',
       credits: 0,
+      balanceUsd: 0,
+      lastPurchase: null,
       package: null,
       telegramId,
       telegramName: name,
@@ -44,6 +46,26 @@ function fmt(n) {
   return Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatUsd(n) {
+  const value = Number(n || 0);
+  const isWhole = Number.isInteger(value);
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2
+  })}`;
+}
+
+function getBalance(user) {
+  if (user.balanceUsd === undefined || user.balanceUsd === null) {
+    user.balanceUsd = Number(user.credits || 0) * DOCUMENT_PRICES.paystub;
+  }
+  return Number(user.balanceUsd || 0);
+}
+
+function setBalance(user, amount) {
+  user.balanceUsd = Math.max(0, Math.round(Number(amount || 0) * 100) / 100);
+}
+
 function botAuthHeaders() {
   const token = jwt.sign(
     { email: 'telegram-bot@replicas.live', service: 'telegram' },
@@ -53,9 +75,18 @@ function botAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
-function spendCredit(user, amount = 1) {
-  user.credits = Math.max(0, Number(user.credits || 0) - amount);
+function spendBalance(user, amount, lastPurchase) {
+  setBalance(user, getBalance(user) - amount);
+  if (lastPurchase) user.lastPurchase = lastPurchase;
   scheduleSave();
+}
+
+function hasBalance(user, amount) {
+  return getBalance(user) >= amount;
+}
+
+function notEnoughBalanceMessage(user, label, amount) {
+  return `❌ Not enough balance. ${label} costs *${formatUsd(amount)}*. Your balance is *${formatUsd(getBalance(user))}*.`;
 }
 
 function bankId(bankName) {
@@ -70,7 +101,7 @@ function bankStatementDocType(bankName) {
 
 function mainMenu() {
   return Markup.keyboard([
-    ['📄 Generate Document', '💳 Buy Credits'],
+    ['📄 Generate Document', '💳 Add Balance'],
     ['👤 My Account', '❓ Help']
   ]).resize();
 }
@@ -259,7 +290,7 @@ bot.start(async (ctx) => {
   await ctx.reply(
     `👋 Welcome to *replicas.live*, ${name}!\n\n` +
     `I generate Canadian financial documents — bank statements, paystubs, NOA, T4 slips, void cheques — and send the PDF right here.\n\n` +
-    `You have *${user.credits} credit(s)* remaining.\n\n` +
+    `Your balance is *${formatUsd(getBalance(user))}*.\n\n` +
     `Use the menu below to get started:`,
     {
       parse_mode: 'Markdown',
@@ -274,8 +305,8 @@ bot.hears(['👤 My Account', '/account'], async (ctx) => {
   await ctx.reply(
     `*Your Account*\n\n` +
     `🆔 ID: \`${ctx.from.id}\`\n` +
-    `💰 Credits: *${user.credits}*\n` +
-    `📦 Package: ${user.package || 'None'}`,
+    `💰 Balance: *${formatUsd(getBalance(user))}*\n` +
+    `🧾 Last Purchase: ${user.lastPurchase || 'None'}`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -284,37 +315,38 @@ bot.hears(['👤 My Account', '/account'], async (ctx) => {
 bot.hears(['❓ Help', '/help'], async (ctx) => {
   await ctx.reply(
     `*How it works:*\n\n` +
-    `1️⃣ Buy credits (1 credit = 1 document)\n` +
+    `1️⃣ Add USD balance to your account\n` +
     `2️⃣ Press *Generate Document*\n` +
     `3️⃣ Answer the questions\n` +
-    `4️⃣ Receive your PDF instantly\n\n` +
+    `4️⃣ Receive your PDF in Telegram\n\n` +
     `*Document types:*\n` +
-    `🏦 Bank Statement (TD, Scotiabank, CIBC, RBC)\n` +
+    `🏦 Bank Statement (TD, BMO, Simplii, Scotiabank, CIBC, RBC)\n` +
     `💼 Paystub (payroll statement)\n` +
     `📋 NOA (Notice of Assessment)\n` +
     `📑 T4 Slip\n` +
     `🔲 Void Cheque\n\n` +
     `*Pricing:*\n` +
-    `• 1 Month Statement — $35\n` +
-    `• 3 Month Statement — $100\n` +
-    `• 6 Month Statement — $200\n` +
-    `• Additional Document — $35\n\n` +
+    `• ${PRICE_LABELS.bank} — ${formatUsd(DOCUMENT_PRICES.bank)}\n` +
+    `• ${PRICE_LABELS.paystub} — ${formatUsd(DOCUMENT_PRICES.paystub)}\n` +
+    `• ${PRICE_LABELS.t4} — ${formatUsd(DOCUMENT_PRICES.t4)}\n` +
+    `• ${PRICE_LABELS.noa} — ${formatUsd(DOCUMENT_PRICES.noa)}\n` +
+    `• ${PRICE_LABELS.void} — ${formatUsd(DOCUMENT_PRICES.void)}\n\n` +
     `Support: Contact us via the web app at replicas.live`,
     { parse_mode: 'Markdown' }
   );
 });
 
-// ─── Buy Credits ──────────────────────────────────────────────────────────────
-bot.hears(['💳 Buy Credits', '/buy'], async (ctx) => {
+// ─── Add Balance ─────────────────────────────────────────────────────────────
+bot.hears(['💳 Add Balance', '💳 Buy Credits', '/buy'], async (ctx) => {
   await ctx.reply(
-    `*Choose a package:*`,
+    `*Choose an amount to add:*`,
     {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('1 Month Statement — $35 (1 credit)', 'buy:month1')],
-        [Markup.button.callback('3 Month Statement — $100 (3 credits)', 'buy:month3')],
-        [Markup.button.callback('6 Month Statement — $200 (6 credits)', 'buy:month6')],
-        [Markup.button.callback('Additional Document — $35 (1 credit)', 'buy:addondoc')],
+        [Markup.button.callback('Add $40 USD', 'buy:balance40')],
+        [Markup.button.callback('Add $100 USD', 'buy:balance100')],
+        [Markup.button.callback('Add $200 USD', 'buy:balance200')],
+        [Markup.button.callback('Add $400 USD', 'buy:balance400')],
       ])
     }
   );
@@ -346,7 +378,7 @@ bot.action(/^buy:(.+)$/, async (ctx) => {
     const invoiceUrl = response.data.invoice_url;
     await ctx.reply(
       `💳 *${pkg.name}* — $${pkg.price} USD\n\n` +
-      `Click the link below to pay with crypto. Once confirmed, *${pkg.credits} credit(s)* will be added to your account automatically.\n\n` +
+      `Click the link below to pay with crypto. Once confirmed, *${formatUsd(pkg.amount || pkg.price)} USD* will be added to your account automatically.\n\n` +
       `🔗 [Pay Now](${invoiceUrl})`,
       { parse_mode: 'Markdown' }
     );
@@ -359,9 +391,9 @@ bot.action(/^buy:(.+)$/, async (ctx) => {
 // ─── Generate Document ────────────────────────────────────────────────────────
 bot.hears(['📄 Generate Document', '/generate'], async (ctx) => {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < 1) {
+  if (getBalance(user) < Math.min(...Object.values(DOCUMENT_PRICES))) {
     return ctx.reply(
-      `❌ You have no credits. Press *Buy Credits* to purchase a package.`,
+      `❌ Your balance is *${formatUsd(getBalance(user))}*. Press *Add Balance* before generating.`,
       { parse_mode: 'Markdown' }
     );
   }
@@ -373,9 +405,9 @@ bot.hears(['📄 Generate Document', '/generate'], async (ctx) => {
   await ctx.reply(
     `What type of document do you need?`,
     Markup.keyboard([
-      ['🏦 Bank Statement', '📋 NOA'],
-      ['📑 T4 Slip', '🔲 Void Cheque'],
-      ['💼 Paystub'],
+      [`🏦 Bank Statement - ${formatUsd(DOCUMENT_PRICES.bank)}`, `📋 NOA - ${formatUsd(DOCUMENT_PRICES.noa)}`],
+      [`📑 T4 Slip - ${formatUsd(DOCUMENT_PRICES.t4)}`, `🔲 Void Cheque - ${formatUsd(DOCUMENT_PRICES.void)}`],
+      [`💼 Paystub - ${formatUsd(DOCUMENT_PRICES.paystub)}`],
       ['❌ Cancel']
     ]).resize()
   );
@@ -406,10 +438,15 @@ bot.on('text', async (ctx) => {
   if (sess.step === 'doctype') {
     const map = {
       '🏦 Bank Statement': 'bank',
+      [`🏦 Bank Statement - ${formatUsd(DOCUMENT_PRICES.bank)}`]: 'bank',
       '📋 NOA': 'noa',
+      [`📋 NOA - ${formatUsd(DOCUMENT_PRICES.noa)}`]: 'noa',
       '📑 T4 Slip': 't4',
+      [`📑 T4 Slip - ${formatUsd(DOCUMENT_PRICES.t4)}`]: 't4',
       '🔲 Void Cheque': 'void',
-      '💼 Paystub': 'paystub'
+      [`🔲 Void Cheque - ${formatUsd(DOCUMENT_PRICES.void)}`]: 'void',
+      '💼 Paystub': 'paystub',
+      [`💼 Paystub - ${formatUsd(DOCUMENT_PRICES.paystub)}`]: 'paystub'
     };
     if (!map[text]) return ctx.reply('Please choose a document type from the menu.');
     d.docType = map[text];
@@ -600,8 +637,13 @@ bot.on('text', async (ctx) => {
 
 async function finalizeBankStatement(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < d.months) {
-    return ctx.reply(`❌ Not enough credits. This package needs *${d.months}* credit(s).`, { parse_mode: 'Markdown' });
+  const unitPrice = DOCUMENT_PRICES.bank;
+  const totalPrice = unitPrice * d.months;
+  if (!hasBalance(user, totalPrice)) {
+    return ctx.reply(
+      `❌ Not enough balance. ${PRICE_LABELS.bank} costs *${formatUsd(unitPrice)}* per month. This request needs *${formatUsd(totalPrice)}*. Your balance is *${formatUsd(getBalance(user))}*.`,
+      { parse_mode: 'Markdown' }
+    );
   }
 
   await ctx.reply(`⏳ Generating your ${d.months}-month ${d.bank} statement... this takes a few seconds.`,
@@ -646,11 +688,11 @@ async function finalizeBankStatement(ctx, d) {
       const presetData = { ...preset, documentType: docType };
 
       const pdfBuf = await generatePdf(presetData);
-      spendCredit(user, 1);
+      spendBalance(user, unitPrice, `${d.bank} Statement`);
 
       await ctx.replyWithDocument(
         { source: pdfBuf, filename: `${d.bank}_Statement_${label.replace(/\s+/g, '_')}.pdf` },
-        { caption: `✅ *${label}* — ${d.bank} Statement\n💰 Credits remaining: ${user.credits}`, parse_mode: 'Markdown' }
+        { caption: `✅ *${label}* — ${d.bank} Statement\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
       );
     }
   } catch (err) {
@@ -661,7 +703,10 @@ async function finalizeBankStatement(ctx, d) {
 
 async function finalizeNOA(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
+  const price = DOCUMENT_PRICES.noa;
+  if (!hasBalance(user, price)) {
+    return ctx.reply(notEnoughBalanceMessage(user, PRICE_LABELS.noa, price), { parse_mode: 'Markdown' });
+  }
 
   await ctx.reply('⏳ Generating your NOA...',
     mainMenu());
@@ -691,11 +736,11 @@ async function finalizeNOA(ctx, d) {
     };
 
     const pdfBuf = await generatePdf(presetData);
-    spendCredit(user, 1);
+    spendBalance(user, price, 'NOA');
 
     await ctx.replyWithDocument(
       { source: pdfBuf, filename: `NOA_${d.taxYear}_${d.name.replace(/\s+/g, '_')}.pdf` },
-      { caption: `✅ NOA ${d.taxYear} — ${d.name}\n💰 Credits remaining: ${user.credits}`, parse_mode: 'Markdown' }
+      { caption: `✅ NOA ${d.taxYear} — ${d.name}\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('NOA gen error:', err.message);
@@ -705,7 +750,10 @@ async function finalizeNOA(ctx, d) {
 
 async function finalizeT4(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
+  const price = DOCUMENT_PRICES.t4;
+  if (!hasBalance(user, price)) {
+    return ctx.reply(notEnoughBalanceMessage(user, PRICE_LABELS.t4, price), { parse_mode: 'Markdown' });
+  }
 
   await ctx.reply('⏳ Generating your T4...',
     mainMenu());
@@ -740,11 +788,11 @@ async function finalizeT4(ctx, d) {
     };
 
     const pdfBuf = await generatePdf(presetData);
-    spendCredit(user, 1);
+    spendBalance(user, price, 'T4 Slip');
 
     await ctx.replyWithDocument(
       { source: pdfBuf, filename: `T4_${d.taxYear}_${d.name.replace(/\s+/g, '_')}.pdf` },
-      { caption: `✅ T4 ${d.taxYear} — ${d.name}\n💰 Credits remaining: ${user.credits}`, parse_mode: 'Markdown' }
+      { caption: `✅ T4 ${d.taxYear} — ${d.name}\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('T4 gen error:', err.message);
@@ -754,7 +802,10 @@ async function finalizeT4(ctx, d) {
 
 async function finalizeVoid(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
+  const price = DOCUMENT_PRICES.void;
+  if (!hasBalance(user, price)) {
+    return ctx.reply(notEnoughBalanceMessage(user, PRICE_LABELS.void, price), { parse_mode: 'Markdown' });
+  }
 
   await ctx.reply('⏳ Generating your void cheque...',
     mainMenu());
@@ -806,11 +857,11 @@ async function finalizeVoid(ctx, d) {
     const presetData = { documentType: bankKey, [bankKey]: voidValues };
 
     const pdfBuf = await generatePdf(presetData);
-    spendCredit(user, 1);
+    spendBalance(user, price, `${d.bank} Void Cheque`);
 
     await ctx.replyWithDocument(
       { source: pdfBuf, filename: `${d.bank}_VoidCheque_${d.name.replace(/\s+/g, '_')}.pdf` },
-      { caption: `✅ ${d.bank} Void Cheque — ${d.name}\n💰 Credits remaining: ${user.credits}`, parse_mode: 'Markdown' }
+      { caption: `✅ ${d.bank} Void Cheque — ${d.name}\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('Void gen error:', err.message);
@@ -820,7 +871,10 @@ async function finalizeVoid(ctx, d) {
 
 async function finalizePaystub(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
+  const price = DOCUMENT_PRICES.paystub;
+  if (!hasBalance(user, price)) {
+    return ctx.reply(notEnoughBalanceMessage(user, PRICE_LABELS.paystub, price), { parse_mode: 'Markdown' });
+  }
 
   await ctx.reply('⏳ Generating your paystub...',
     mainMenu());
@@ -860,12 +914,12 @@ async function finalizePaystub(ctx, d) {
     };
 
     const pdfBuf = await generatePdf(presetData);
-    spendCredit(user, 1);
+    spendBalance(user, price, 'Paystub');
 
     const safeName = d.name.replace(/\s+/g, '_');
     await ctx.replyWithDocument(
       { source: pdfBuf, filename: `Paystub_${d.payDate}_${safeName}.pdf` },
-      { caption: `✅ Paystub — ${d.name} (${d.payDate})\n💰 Credits remaining: ${user.credits}`, parse_mode: 'Markdown' }
+      { caption: `✅ Paystub — ${d.name} (${d.payDate})\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('Paystub gen error:', err.message);
@@ -873,26 +927,29 @@ async function finalizePaystub(ctx, d) {
   }
 }
 
-// ─── Admin: add credits via bot ───────────────────────────────────────────────
-bot.command('addcredits', async (ctx) => {
+async function addBalanceCommand(ctx) {
   const adminTgId = process.env.ADMIN_TELEGRAM_ID;
   if (!adminTgId || String(ctx.from.id) !== String(adminTgId)) {
     return ctx.reply('❌ Unauthorized.');
   }
   const parts = ctx.message.text.split(' ');
-  if (parts.length < 3) return ctx.reply('Usage: /addcredits <telegram_id> <amount>');
+  if (parts.length < 3) return ctx.reply('Usage: /addbalance <telegram_id> <usd_amount>');
   const targetId = parts[1];
-  const amount = parseInt(parts[2]);
+  const amount = parseFloat(parts[2]);
   if (isNaN(amount)) return ctx.reply('Invalid amount.');
   const key = `tg:${targetId}`;
   const user = users.get(key);
   if (!user) return ctx.reply(`No user found with Telegram ID ${targetId}.`);
-  user.credits += amount;
+  setBalance(user, getBalance(user) + amount);
   scheduleSave();
-  await ctx.reply(`✅ Added ${amount} credit(s) to user ${targetId}. New balance: ${user.credits}`);
+  await ctx.reply(`✅ Added ${formatUsd(amount)} to user ${targetId}. New balance: ${formatUsd(getBalance(user))}`);
   try {
-    await bot.telegram.sendMessage(targetId, `🎉 ${amount} credit(s) have been added to your account!\n💰 New balance: *${user.credits} credits*`, { parse_mode: 'Markdown' });
+    await bot.telegram.sendMessage(targetId, `🎉 ${formatUsd(amount)} has been added to your account!\n💰 New balance: *${formatUsd(getBalance(user))}*`, { parse_mode: 'Markdown' });
   } catch (e) {}
-});
+}
+
+// ─── Admin: add USD balance via bot ──────────────────────────────────────────
+bot.command('addbalance', addBalanceCommand);
+bot.command('addcredits', addBalanceCommand);
 
 module.exports = { bot };

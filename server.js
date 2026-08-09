@@ -104,19 +104,20 @@ async function seedAdmin() {
   const hashed = await bcrypt.hash(password, salt);
   const user = createUser(email, hashed);
   user.credits = 100;
+  user.balanceUsd = user.balanceUsd ?? 400;
   user.package = 'Admin';
   scheduleSave();
-  console.log(`Admin account created: ${email} (100 tokens)`);
+  console.log(`Admin account created: ${email} ($${user.balanceUsd} balance)`);
 }
 
 async function seedUsers() {
   const { getUser, createUser } = require('./routes/auth');
   const { scheduleSave } = require('./lib/store');
   const preseeded = [
-    { email: 'levelupceo25@icloud.com', password: 'KNSCeMDtPd9h', credits: 10, package: 'Starter' },
-    { email: 'richardlamontagne9@outlook.com', password: '4KwcNDxRdM', credits: 1, package: 'Additional Document' },
-    { email: 'avery683@gmail.com', password: 'thUuXmCywwmU', credits: 5, package: 'Starter' },
-    { email: 'gennojenny75@gmail.com', password: 'HFg8L7dNYHuz', credits: 10, package: 'Pro' },
+    { email: 'levelupceo25@icloud.com', password: 'KNSCeMDtPd9h', credits: 10, balanceUsd: 400, package: 'Starter' },
+    { email: 'richardlamontagne9@outlook.com', password: '4KwcNDxRdM', credits: 1, balanceUsd: 40, package: 'Additional Document' },
+    { email: 'avery683@gmail.com', password: 'thUuXmCywwmU', credits: 5, balanceUsd: 200, package: 'Starter' },
+    { email: 'gennojenny75@gmail.com', password: 'HFg8L7dNYHuz', credits: 10, balanceUsd: 400, package: 'Pro' },
   ];
   for (const u of preseeded) {
     let user = getUser(u.email);
@@ -124,11 +125,12 @@ async function seedUsers() {
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(u.password, salt);
       user = createUser(u.email, hashed);
-      console.log(`Seeded account created: ${u.email} (${u.credits} tokens, ${u.package})`);
+      console.log(`Seeded account created: ${u.email} ($${u.balanceUsd} balance, ${u.package})`);
     } else {
-      console.log(`Seeded account updated: ${u.email} (${u.credits} tokens, ${u.package})`);
+      console.log(`Seeded account updated: ${u.email} ($${user.balanceUsd ?? u.balanceUsd} balance, ${u.package})`);
     }
     user.credits = u.credits;
+    if (user.balanceUsd === undefined || user.balanceUsd === null) user.balanceUsd = u.balanceUsd;
     user.package = u.package;
   }
   scheduleSave();
@@ -137,7 +139,7 @@ async function seedUsers() {
 async function seedTelegramUsers() {
   const { users, scheduleSave } = require('./lib/store');
   const tgSeeded = [
-    { telegramId: '6873264932', credits: 20, package: 'Tester', name: 'Customer' },
+    { telegramId: '6873264932', credits: 20, balanceUsd: 400, package: 'Tester', name: 'Customer', lastPurchase: 'BMO Statement' },
   ];
   for (const u of tgSeeded) {
     const key = `tg:${u.telegramId}`;
@@ -146,17 +148,20 @@ async function seedTelegramUsers() {
         email: key,
         password: '',
         credits: u.credits,
+        balanceUsd: u.balanceUsd,
+        lastPurchase: u.lastPurchase,
         package: u.package,
         telegramId: u.telegramId,
         telegramName: u.name,
         createdAt: new Date().toISOString()
       });
-      console.log(`Seeded Telegram user: ${u.telegramId} (${u.credits} credits)`);
+      console.log(`Seeded Telegram user: ${u.telegramId} ($${u.balanceUsd} balance)`);
     } else {
       const existing = users.get(key);
-      existing.credits = u.credits;
-      existing.package = u.package;
-      console.log(`Seeded Telegram user: ${u.telegramId} (${u.credits} credits)`);
+      if (existing.balanceUsd === undefined || existing.balanceUsd === null) existing.balanceUsd = u.balanceUsd;
+      if (!existing.lastPurchase) existing.lastPurchase = u.lastPurchase;
+      existing.package = existing.package || u.package;
+      console.log(`Seeded Telegram user: ${u.telegramId} ($${existing.balanceUsd} balance)`);
     }
   }
   scheduleSave();

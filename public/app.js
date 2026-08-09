@@ -11,15 +11,15 @@ async function consumeToken() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      if (res.status === 403 || (err.error && err.error.includes('No credits'))) {
-        window.alert('You have no tokens remaining. Please purchase more on the dashboard.');
+      if (res.status === 403 || (err.error && /credits|balance/i.test(err.error))) {
+        window.alert('Your balance is too low. Please add more on the dashboard.');
         window.location.href = '/dashboard.html';
         throw new Error('NO_CREDITS');
       }
       throw new Error(err.error || 'Token consumption failed');
     }
     const data = await res.json();
-    updateTokenDisplay(data.remainingCredits);
+    updateTokenDisplay(data.remainingBalance ?? data.remainingCredits);
     return true;
   } catch (e) {
     if (e.message === 'NO_CREDITS') throw e;
@@ -30,7 +30,11 @@ async function consumeToken() {
 
 function updateTokenDisplay(count) {
   const el = document.getElementById('tokenCount');
-  if (el) el.textContent = count;
+  if (!el) return;
+  const value = Number(count || 0);
+  el.textContent = Number.isFinite(value)
+    ? `$${value.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`
+    : count;
 }
 
 async function loadTokenCount() {
@@ -38,7 +42,7 @@ async function loadTokenCount() {
     const res = await fetch('/api/credits/me', { headers: getAuthHeaders() });
     if (res.ok) {
       const data = await res.json();
-      updateTokenDisplay(data.credits);
+      updateTokenDisplay(data.balanceUsd ?? data.credits);
     }
   } catch (e) {
     console.error('loadTokenCount error', e);

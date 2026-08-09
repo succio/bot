@@ -1,6 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const { users, scheduleSave } = require('../lib/store');
+const { DOCUMENT_PRICES } = require('./payments-shared');
 const router = express.Router();
 
 const noCache = (req, res, next) => {
@@ -9,6 +10,17 @@ const noCache = (req, res, next) => {
   res.set('Expires', '0');
   next();
 };
+
+function getBalance(user) {
+  if (user.balanceUsd === undefined || user.balanceUsd === null) {
+    user.balanceUsd = Number(user.credits || 0) * DOCUMENT_PRICES.paystub;
+  }
+  return Number(user.balanceUsd || 0);
+}
+
+function setBalance(user, amount) {
+  user.balanceUsd = Math.max(0, Math.round(Number(amount || 0) * 100) / 100);
+}
 
 router.get('/me', noCache, authMiddleware, (req, res) => {
   try {
@@ -19,6 +31,7 @@ router.get('/me', noCache, authMiddleware, (req, res) => {
     res.json({
       email: user.email,
       credits: user.credits,
+      balanceUsd: getBalance(user),
       package: user.package || null
     });
   } catch (err) {
@@ -35,16 +48,19 @@ router.post('/use-credit', authMiddleware, (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    if (user.credits <= 0) {
-      return res.status(403).json({ error: 'Insufficient credits.' });
+    const amount = Number(req.body?.amount || DOCUMENT_PRICES.paystub);
+    if (getBalance(user) < amount) {
+      return res.status(403).json({ error: 'Insufficient balance.' });
     }
 
-    user.credits -= 1;
+    setBalance(user, getBalance(user) - amount);
     scheduleSave();
 
     res.json({
-      message: 'Credit used successfully.',
-      remainingCredits: user.credits
+      message: 'Balance used successfully.',
+      remainingCredits: user.credits,
+      remainingBalance: user.balanceUsd,
+      balanceUsd: user.balanceUsd
     });
   } catch (err) {
     console.error('Use credit error:', err.message);
@@ -53,7 +69,7 @@ router.post('/use-credit', authMiddleware, (req, res) => {
 });
 
 router.post('/admin/set', noCache, (req, res) => {
-  const { secret, email, credits, pkg } = req.body;
+  const { secret, email, credits, balanceUsd, pkg } = req.body;
   if (secret !== process.env.JWT_SECRET) {
     return res.status(403).json({ error: 'Forbidden' });
   }
@@ -63,10 +79,11 @@ router.post('/admin/set', noCache, (req, res) => {
     return res.status(404).json({ error: 'User not found: ' + key });
   }
   if (credits !== undefined) user.credits = Number(credits);
+  if (balanceUsd !== undefined) user.balanceUsd = Number(balanceUsd);
   if (pkg !== undefined) user.package = pkg;
   scheduleSave();
-  console.log(`Admin set: ${key} → ${user.credits} credits, ${user.package}`);
-  res.json({ email: user.email, credits: user.credits, package: user.package });
+  console.log(`Admin set: ${key} → $${getBalance(user)} balance, ${user.package}`);
+  res.json({ email: user.email, credits: user.credits, balanceUsd: getBalance(user), package: user.package });
 });
 
 module.exports = router;

@@ -13,6 +13,7 @@ function createUser(email, hashedPassword) {
     email: email.toLowerCase(),
     password: hashedPassword,
     credits: 0,
+    balanceUsd: 0,
     createdAt: new Date().toISOString()
   };
   users.set(user.email, user);
@@ -58,7 +59,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully.',
       token,
-      user: { email: user.email, credits: user.credits }
+      user: { email: user.email, credits: user.credits, balanceUsd: user.balanceUsd || 0 }
     });
   } catch (err) {
     console.error('Registration error:', err.message);
@@ -95,7 +96,7 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { email: user.email, credits: user.credits }
+      user: { email: user.email, credits: user.credits, balanceUsd: user.balanceUsd || 0 }
     });
   } catch (err) {
     console.error('Login error:', err.message);

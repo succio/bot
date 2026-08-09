@@ -6,6 +6,21 @@ const { users, scheduleSave } = require('../lib/store');
 const { PACKAGES } = require('./payments-shared');
 const router = express.Router();
 
+function formatUsd(n) {
+  const value = Number(n || 0);
+  const isWhole = Number.isInteger(value);
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2
+  })}`;
+}
+
+function addUsdBalance(user, amount, label) {
+  const current = Number(user.balanceUsd || 0);
+  user.balanceUsd = Math.round((current + Number(amount || 0)) * 100) / 100;
+  user.package = label;
+}
+
 router.get('/packages', (req, res) => {
   res.json({ packages: PACKAGES });
 });
@@ -39,7 +54,7 @@ router.post('/create-payment', authMiddleware, async (req, res) => {
         price_currency: pkg.currency,
         pay_currency: pay_currency,
         order_id: `replicas_${packageId}_${req.user.email}_${Date.now()}`,
-        order_description: `replicas.live ${pkg.name} - ${pkg.credits} tokens`,
+        order_description: `replicas.live ${pkg.name} - ${formatUsd(pkg.amount || pkg.price)} USD balance`,
         ipn_callback_url: `${req.protocol}://${req.get('host')}/api/payments/ipn`
       },
       { headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY, 'Content-Type': 'application/json' } }
@@ -90,15 +105,15 @@ router.post('/ipn', (req, res) => {
         const user = users.get(key);
         console.log(`IPN Telegram: orderId=${orderId}, telegramId=${telegramId}, packageId=${packageId}, userFound=${!!user}, pkgFound=${!!pkg}`);
         if (user && pkg) {
-          user.credits += pkg.credits;
-          user.package = pkg.name;
+          const addAmount = Number(pkg.amount || pkg.price || 0);
+          addUsdBalance(user, addAmount, pkg.name);
           scheduleSave();
-          console.log(`Added ${pkg.credits} credits (${pkg.name}) to TG user ${telegramId}. Total: ${user.credits}`);
+          console.log(`Added ${formatUsd(addAmount)} (${pkg.name}) to TG user ${telegramId}. Total: ${formatUsd(user.balanceUsd)}`);
           try {
             const { bot } = require('../bot/telegram');
             bot.telegram.sendMessage(
               telegramId,
-              `✅ Payment confirmed!\n\n*${pkg.credits} credit(s)* have been added to your account.\n💰 New balance: *${user.credits} credits*\n\nPress *📄 Generate Document* to get started!`,
+              `✅ Payment confirmed!\n\n*${formatUsd(addAmount)} USD* has been added to your account.\n💰 Balance: *${formatUsd(user.balanceUsd)}*\n\nPress *📄 Generate Document* to get started!`,
               { parse_mode: 'Markdown' }
             ).catch(e => console.error('TG notify error:', e.message));
           } catch (e) {
@@ -120,10 +135,10 @@ router.post('/ipn', (req, res) => {
             if (paidAmount < pkg.price) {
               console.warn(`IPN: Paid amount ${paidAmount} < pkg price ${pkg.price}. Email: ${email}`);
             } else {
-              user.credits += pkg.credits;
-              user.package = pkg.name;
+              const addAmount = Number(pkg.amount || pkg.price || 0);
+              addUsdBalance(user, addAmount, pkg.name);
               scheduleSave();
-              console.log(`Added ${pkg.credits} credits (${pkg.name}) to ${email}. Total: ${user.credits}`);
+              console.log(`Added ${formatUsd(addAmount)} (${pkg.name}) to ${email}. Total: ${formatUsd(user.balanceUsd)}`);
             }
           } else {
             console.warn(`IPN: User or package not found. Email: ${email}, Package: ${packageId}`);

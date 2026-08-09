@@ -1,36 +1,52 @@
+const DOCUMENT_PRICES = {
+  bank: 40,
+  paystub: 35,
+  t4: 40,
+  noa: 40,
+  void: 30
+};
+
+const PRICE_LABELS = {
+  bank: 'BANK STATEMENT',
+  paystub: 'PAYSTUB',
+  t4: 'T4 SLIP',
+  noa: 'NOA',
+  void: 'VOID CHEQUE'
+};
+
 const PACKAGES = {
-  month1: {
-    name: '1 Month Statement',
-    price: 35,
-    credits: 1,
+  balance40: {
+    name: 'Add $40 Balance',
+    price: 40,
+    amount: 40,
     currency: 'usd',
-    description: '1 monthly bank statement',
-    features: ['All major Canadian banks', 'Carry-over balance across months', 'Add custom transactions', 'Auto calculations']
+    description: '$40 USD account balance',
+    features: ['Use toward any document']
   },
-  month3: {
-    name: '3 Month Statement',
+  balance100: {
+    name: 'Add $100 Balance',
     price: 100,
-    credits: 3,
+    amount: 100,
     currency: 'usd',
-    description: '3 consecutive monthly statements',
-    features: ['All major Canadian banks', 'Carry-over balance across months', 'Add custom transactions', 'Auto calculations']
+    description: '$100 USD account balance',
+    features: ['Use toward any document']
   },
-  month6: {
-    name: '6 Month Statement',
+  balance200: {
+    name: 'Add $200 Balance',
     price: 200,
-    credits: 6,
+    amount: 200,
     currency: 'usd',
-    description: '6 consecutive monthly statements',
-    features: ['All major Canadian banks', 'Carry-over balance across months', 'Add custom transactions', 'Auto calculations']
+    description: '$200 USD account balance',
+    features: ['Use toward any document']
   },
-  addondoc: {
-    name: 'Additional Document',
-    price: 35,
-    credits: 1,
+  balance400: {
+    name: 'Add $400 Balance',
+    price: 400,
+    amount: 400,
     currency: 'usd',
-    description: 'One additional document type',
-    features: ['Paystubs', 'Void Cheque', 'CRA Notice of Assessment', 'T4 Slip']
+    description: '$400 USD account balance',
+    features: ['Use toward any document']
   }
 };
 
-module.exports = { PACKAGES };
+module.exports = { PACKAGES, DOCUMENT_PRICES, PRICE_LABELS };
