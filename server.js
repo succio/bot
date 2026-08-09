@@ -76,7 +76,7 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
       .digest('hex')
       .slice(0, 32);
     telegramWebhookPath = process.env.TELEGRAM_WEBHOOK_PATH || `/telegram/webhook/${webhookSecret}`;
-    app.use(telegramWebhookPath, telegramBot.webhookCallback(telegramWebhookPath));
+    app.use(telegramBot.webhookCallback(telegramWebhookPath));
   } catch (err) {
     console.error('Failed to load Telegram bot:', err.stack || err.message);
   }
