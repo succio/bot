@@ -240,23 +240,22 @@ async function generatePdf(presetData) {
       if (type === 'scotiaStatement') {
         const style = document.createElement('style');
         style.textContent = `
-          @page { size: A4; margin: 0; }
-          html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow-x: hidden !important; }
-          #scotiaReport { display: block !important; width: 210mm !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
-          #scotiaReport .scotia-page { width: 210mm !important; height: 297mm !important; min-height: 0 !important; margin: 0 !important; padding: 0.58in 0.86in 0.5in 0.92in !important; box-shadow: none !important; border: 0 !important; overflow: hidden !important; break-after: page !important; page-break-after: always !important; }
+          @page { size: Letter; margin: 0; }
+          html, body { width: 8.5in; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow-x: hidden !important; }
+          #scotiaReport { display: block !important; width: 8.5in !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+          #scotiaReport .scotia-page { width: 8.5in !important; min-height: 11in !important; margin: 0 !important; padding: 0.5in 0.6in 0.5in 0.75in !important; box-shadow: none !important; border: 0 !important; display: flex !important; flex-direction: column !important; break-after: page !important; page-break-after: always !important; }
           #scotiaReport .scotia-page:last-child { break-after: auto !important; page-break-after: auto !important; }
-          #scotiaReport .scotia-page-break { break-before: auto !important; page-break-before: auto !important; }
-          #scotiaReport .scotia-logo { width: 170px !important; }
-          #scotiaReport .scotia-banner { padding: 0.17in 0.35in !important; }
-          #scotiaReport .scotia-main-column { width: 6.92in !important; max-width: 100% !important; }
-          #scotiaReport .scotia-page-number { width: 6.92in !important; }
-          #scotiaReport .scotia-ledger { table-layout: fixed !important; width: 100% !important; font-size: 8.8pt !important; }
-          #scotiaReport .scotia-ledger td { padding: 0.023in 0.06in !important; }
+          #scotiaReport .scotia-page-break { break-before: page !important; page-break-before: always !important; }
+          #scotiaReport .scotia-logo { width: 180px !important; }
+          #scotiaReport .scotia-banner { padding: 0.18in 0.35in !important; }
+          #scotiaReport .scotia-ledger { width: calc(100% - 1.4in) !important; border-collapse: collapse !important; font-size: 8.5pt !important; }
+          #scotiaPage1 .scotia-summary,
+          #scotiaPage1 .scotia-section-title,
+          #scotiaPage1 .scotia-continued { margin-right: 1.4in !important; }
+          #scotiaReport .scotia-page-number { margin: auto 1.4in 0 0 !important; }
+          #scotiaReport .scotia-ledger td { padding: 0.03in 0.06in !important; }
           #scotiaReport .scotia-ledger td.sc-desc .sc-desc-type { font-weight: 400 !important; }
-          #scotiaReport .scotia-ledger td.sc-desc .sc-desc-detail { font-size: 8.6pt !important; line-height: 1.08 !important; }
-          #scotiaReport .scotia-ledger td:nth-child(3),
-          #scotiaReport .scotia-ledger td:nth-child(4),
-          #scotiaReport .scotia-ledger td:nth-child(5) { white-space: nowrap !important; }
+          #scotiaReport .scotia-ledger td.sc-desc .sc-desc-detail { font-size: 7.5pt !important; }
         `;
         document.head.appendChild(style);
       }

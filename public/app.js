@@ -2527,7 +2527,7 @@ function renderScotiaBarcode(canvasEl, seed) {
 }
 
 async function saveScotiaPdf(filename) {
-  return saveTwoPagePdf(filename, "scotiaPage1", "scotiaPage2", "a4");
+  return saveTwoPagePdf(filename, "scotiaPage1", "scotiaPage2", "letter");
 }
 
 function buildCibcPages(cibcData) {

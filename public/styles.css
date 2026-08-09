@@ -2596,53 +2596,35 @@ button:hover {
   }
 
   .scotia-report {
-    width: 210mm;
-    border: 0;
-    margin: 0;
-    padding: 0;
+    width: 100%;
   }
 
   .scotia-page {
-    width: 210mm;
-    height: 297mm;
-    min-height: 0;
-    margin: 0;
-    overflow: hidden;
-    box-shadow: none;
-  }
-
-  .scotia-page + .scotia-page {
-    margin-top: 0;
-    break-before: auto;
-    page-break-before: auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 215.9 / 279.4;
   }
 
 }
 
 .scotia-report {
-  width: min(100%, 210mm);
+  width: min(100%, 8.5in);
   margin: 0 auto;
   background: #fff;
 }
 
 .scotia-page {
-  width: 210mm;
-  height: 297mm;
-  padding: 0.58in 0.86in 0.5in 0.92in;
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.5in 0.6in 0.5in 0.75in;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 9pt;
   color: #000;
   position: relative;
   box-sizing: border-box;
-  overflow: hidden;
-  page-break-after: always;
-  break-after: page;
-}
-
-.scotia-page:last-child {
-  page-break-after: auto;
-  break-after: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .scotia-header {
@@ -2652,7 +2634,7 @@ button:hover {
 }
 
 .scotia-logo {
-  width: 170px;
+  width: 180px;
   height: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -2663,7 +2645,7 @@ button:hover {
   color: #fff;
   font-weight: 700;
   font-size: 11pt;
-  padding: 0.17in 0.35in;
+  padding: 0.18in 0.35in;
   letter-spacing: 0.02em;
   flex: 1;
   margin-left: 0.18in;
@@ -2741,11 +2723,6 @@ button:hover {
   color: #444;
 }
 
-.scotia-main-column {
-  width: 6.92in;
-  max-width: 100%;
-}
-
 .scotia-summary {
   margin: 0.15in 0 0.2in;
   border-top: 1px solid #000;
@@ -2757,6 +2734,7 @@ button:hover {
   font-size: 10pt;
   margin: 0 0 0.06in;
   font-weight: 700;
+  letter-spacing: normal;
 }
 
 .scotia-summary-row {
@@ -2778,13 +2756,19 @@ button:hover {
   font-size: 10pt;
   font-weight: 700;
   margin: 0.12in 0 0.08in;
+  letter-spacing: normal;
 }
 
 .scotia-ledger {
-  width: 100%;
-  table-layout: fixed;
+  width: calc(100% - 1.4in);
   border-collapse: collapse;
-  font-size: 8.8pt;
+  font-size: 8.5pt;
+}
+
+#scotiaPage1 .scotia-summary,
+#scotiaPage1 .scotia-section-title,
+#scotiaPage1 .scotia-continued {
+  margin-right: 1.4in;
 }
 
 .scotia-ledger th {
@@ -2802,25 +2786,24 @@ button:hover {
 }
 
 .scotia-ledger td {
-  padding: 0.023in 0.06in;
+  padding: 0.03in 0.06in;
   vertical-align: top;
   border-bottom: 1px dotted #aaa;
 }
 
 .scotia-ledger td:first-child {
-  width: 0.65in;
+  width: 60px;
 }
 
 .scotia-ledger td:nth-child(2) {
-  width: 42%;
+  width: 40%;
 }
 
 .scotia-ledger td:nth-child(3),
 .scotia-ledger td:nth-child(4),
 .scotia-ledger td:nth-child(5) {
   text-align: right;
-  width: 16%;
-  white-space: nowrap;
+  width: 18%;
 }
 
 .scotia-ledger td.sc-desc .sc-desc-type {
@@ -2831,9 +2814,8 @@ button:hover {
 .scotia-ledger td.sc-desc .sc-desc-detail {
   display: block;
   font-weight: 400;
-  font-size: 8.6pt;
+  font-size: 7.5pt;
   color: #333;
-  line-height: 1.08;
 }
 
 .scotia-ledger tr.sc-opening-row td {
@@ -2849,10 +2831,9 @@ button:hover {
 }
 
 .scotia-page-number {
-  width: 6.92in;
   text-align: right;
   font-size: 8pt;
-  margin: 0.1in 0 0;
+  margin: auto 1.4in 0 0;
   color: #555;
 }
 
@@ -2869,8 +2850,8 @@ button:hover {
 }
 
 .scotia-page-break {
-  break-before: auto;
-  page-break-before: auto;
+  break-before: page;
+  page-break-before: always;
 }
 
 .scotia-page2-info {
