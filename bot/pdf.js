@@ -84,7 +84,8 @@ async function generatePdf(presetData) {
       statement: '#statementReport',
       scotiaStatement: '#scotiaReport',
       cibcStatement: '#cibcReport',
-      rbcStatement: '#rbcReport'
+      rbcStatement: '#rbcReport',
+      bmoStatement: '#bmoReport'
     }[docType] || '#paystub';
 
     const ready = await page.waitForFunction((selector) => {
@@ -259,11 +260,24 @@ async function generatePdf(presetData) {
         `;
         document.head.appendChild(style);
       }
+
+      if (type === 'bmoStatement') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: Letter; margin: 0; }
+          html, body { width: 8.5in; margin: 0 !important; padding: 0 !important; background: #fff !important; overflow-x: hidden !important; }
+          #bmoReport { display: block !important; width: 8.5in !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+          #bmoReport .bmo-page { width: 8.5in !important; height: 11in !important; min-height: 0 !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; overflow: hidden !important; break-after: page !important; page-break-after: always !important; }
+          #bmoReport .bmo-page:last-child { break-after: auto !important; page-break-after: auto !important; }
+          #bmoReport .bmo-page-break { break-before: auto !important; page-break-before: auto !important; }
+        `;
+        document.head.appendChild(style);
+      }
     }, docType);
 
     const visibleReport = await page.evaluate(() => {
       const report = document.querySelector(
-        '#paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden)'
+        '#paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden), #bmoReport:not(.is-hidden)'
       );
       if (!report) return null;
       const rect = report.getBoundingClientRect();

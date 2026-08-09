@@ -433,6 +433,31 @@ const sampleData = {
       { date: "30 Sep", description: "Interac purchase -1361 - Nasr Foods Inc.", withdrawn: 47.00, deposited: 0 },
     ],
   },
+  bmoStatement: {
+    name: "SUCCIO SUCCIO",
+    address: "235 POLSEN ST\nTORONTO ON M2E 4X3",
+    branchAddress: "2738\n3701 STRANDHERD DRIVE\nNEPEAN ONTARIO K2J 4G8",
+    branchName: "BMO Bank of Montreal",
+    transitNo: "2738",
+    phone: "1-800-363-9992",
+    planName: "Performance Chequing",
+    accountNo: "208848484",
+    accountType: "Primary Chequing Account",
+    periodEnd: "Jul 31, 2026",
+    openingBalance: 5000.00,
+    transactions: [
+      { date: "Jul 01", description: "Debit Card Purchase\nLoblaws Toronto ON", deducted: 120.00, added: 0 },
+      { date: "Jul 03", description: "Debit Card Purchase\nMetro Toronto ON", deducted: 75.00, added: 0 },
+      { date: "Jul 05", description: "Direct Deposit\nKLIPFOLIO INC PAYROLL DEPOSIT", deducted: 0, added: 3200.00 },
+      { date: "Jul 07", description: "Debit Card Purchase\nShoppers Drug Mart Toronto ON", deducted: 45.00, added: 0 },
+      { date: "Jul 09", description: "Debit Card Purchase\nTim Hortons Toronto ON", deducted: 10.00, added: 0 },
+      { date: "Jul 11", description: "Debit Card Purchase\nToronto Hydro", deducted: 100.00, added: 0 },
+      { date: "Jul 14", description: "Debit Card Purchase\nFreshCo Toronto ON", deducted: 60.00, added: 0 },
+      { date: "Jul 18", description: "Direct Deposit\nKLIPFOLIO INC PAYROLL DEPOSIT", deducted: 0, added: 3200.00 },
+      { date: "Jul 22", description: "Debit Card Purchase\nStarbucks Toronto ON", deducted: 15.00, added: 0 },
+      { date: "Jul 26", description: "Debit Card Purchase\nTTC PRESTO Toronto ON", deducted: 50.00, added: 0 },
+    ],
+  },
   statement: {
     name: "MR TREQUIL SKENE",
     address: "142 SEGUIN ST\nRICHMOND HILL ON L4E 1N2",
@@ -686,6 +711,21 @@ const elements = {
   rbOpeningBalance: document.getElementById("rbOpeningBalance"),
   addRbcRowBtn: document.getElementById("addRbcRowBtn"),
   rbcTransactionsTable: document.querySelector("#rbcTransactionsTable tbody"),
+  bmoStatementControls: document.getElementById("bmoStatementControls"),
+  bmoReport: document.getElementById("bmoReport"),
+  bmName: document.getElementById("bmName"),
+  bmAddress: document.getElementById("bmAddress"),
+  bmBranchAddress: document.getElementById("bmBranchAddress"),
+  bmBranchName: document.getElementById("bmBranchName"),
+  bmTransitNo: document.getElementById("bmTransitNo"),
+  bmPhone: document.getElementById("bmPhone"),
+  bmPlanName: document.getElementById("bmPlanName"),
+  bmAccountNo: document.getElementById("bmAccountNo"),
+  bmAccountType: document.getElementById("bmAccountType"),
+  bmPeriodEnd: document.getElementById("bmPeriodEnd"),
+  bmOpeningBalance: document.getElementById("bmOpeningBalance"),
+  addBmoRowBtn: document.getElementById("addBmoRowBtn"),
+  bmoTransactionsTable: document.querySelector("#bmoTransactionsTable tbody"),
   pvEvDate: document.getElementById("pvEvDate"),
   pvEvEmployeeNameUpper: document.getElementById("pvEvEmployeeNameUpper"),
   pvEvCompanyNameTop: document.getElementById("pvEvCompanyNameTop"),
@@ -1198,6 +1238,7 @@ function getDocumentType() {
   if (value === "scotiaStatement") return value;
   if (value === "cibcStatement") return value;
   if (value === "rbcStatement") return value;
+  if (value === "bmoStatement") return value;
   if (value === "noaStatement") return value;
   if (value === "t4Slip") return value;
   if (value === "bmoVoidCheck") return value;
@@ -1209,7 +1250,7 @@ function getDocumentType() {
 }
 
 function setDocumentType(type) {
-  const validTypes = ["employment", "statement", "scotiaStatement", "cibcStatement", "rbcStatement", "noaStatement", "t4Slip", "bmoVoidCheck", "scotiaVoidCheck", "rbcVoidCheck", "tdVoidCheck", "cibcVoidCheck"];
+  const validTypes = ["employment", "statement", "scotiaStatement", "cibcStatement", "rbcStatement", "bmoStatement", "noaStatement", "t4Slip", "bmoVoidCheck", "scotiaVoidCheck", "rbcVoidCheck", "tdVoidCheck", "cibcVoidCheck"];
   const normalized = validTypes.includes(type) ? type : "payroll";
   elements.documentTypeSelect.value = normalized;
   elements.payrollControls.classList.toggle("is-hidden", normalized !== "payroll");
@@ -1218,6 +1259,7 @@ function setDocumentType(type) {
   elements.scotiaStatementControls.classList.toggle("is-hidden", normalized !== "scotiaStatement");
   elements.cibcStatementControls.classList.toggle("is-hidden", normalized !== "cibcStatement");
   elements.rbcStatementControls.classList.toggle("is-hidden", normalized !== "rbcStatement");
+  elements.bmoStatementControls.classList.toggle("is-hidden", normalized !== "bmoStatement");
   elements.noaControls.classList.toggle("is-hidden", normalized !== "noaStatement");
   elements.t4Controls.classList.toggle("is-hidden", normalized !== "t4Slip");
   elements.bmoVoidControls.classList.toggle("is-hidden", normalized !== "bmoVoidCheck");
@@ -1231,6 +1273,7 @@ function setDocumentType(type) {
   elements.scotiaReport.classList.toggle("is-hidden", normalized !== "scotiaStatement");
   elements.cibcReport.classList.toggle("is-hidden", normalized !== "cibcStatement");
   elements.rbcReport.classList.toggle("is-hidden", normalized !== "rbcStatement");
+  elements.bmoReport.classList.toggle("is-hidden", normalized !== "bmoStatement");
   elements.noaReport.classList.toggle("is-hidden", normalized !== "noaStatement");
   const t4El = document.getElementById("t4Report");
   if (t4El) t4El.classList.toggle("is-hidden", normalized !== "t4Slip");
@@ -1247,6 +1290,7 @@ function getActiveDocumentNode() {
   if (getDocumentType() === "scotiaStatement") return elements.scotiaReport;
   if (getDocumentType() === "cibcStatement") return elements.cibcReport;
   if (getDocumentType() === "rbcStatement") return elements.rbcReport;
+  if (getDocumentType() === "bmoStatement") return elements.bmoReport;
   if (getDocumentType() === "noaStatement") return elements.noaReport;
   if (getDocumentType() === "t4Slip") return document.getElementById("t4Report");
   if (getDocumentType() === "bmoVoidCheck") return elements.bmoVoidReport;
@@ -1288,6 +1332,11 @@ function buildPdfFilename(data) {
     const to = slugify(data.rbcStatement?.statementTo) || "to";
     return `rbc-statement-${person}-${from}-${to}.pdf`;
   }
+  if (docType === "bmoStatement") {
+    const person = slugify(data.bmoStatement?.name) || "account-holder";
+    const period = slugify(data.bmoStatement?.periodEnd) || "period";
+    return `bmo-statement-${person}-${period}.pdf`;
+  }
   if (docType === "noaStatement") {
     const person = slugify(data.noaStatement?.name) || "taxpayer";
     const year = slugify(data.noaStatement?.taxYear) || "year";
@@ -1324,6 +1373,9 @@ function buildPdfFilename(data) {
 }
 
 function getPdfPageSizeMm(format) {
+  if (String(format).toLowerCase() === "letter") {
+    return { width: 215.9, height: 279.4 };
+  }
   return { width: 210, height: 297 };
 }
 
@@ -1434,6 +1486,7 @@ async function downloadPdf() {
   const isScotiaExport = getDocumentType() === "scotiaStatement";
   const isCibcExport = getDocumentType() === "cibcStatement";
   const isRbcExport = getDocumentType() === "rbcStatement";
+  const isBmoExport = getDocumentType() === "bmoStatement";
   const isCompactThemeExport =
     getDocumentType() === "payroll" &&
     (data.designTemplate === "northern-mint" || data.designTemplate === "monochrome-ledger");
@@ -1482,6 +1535,12 @@ async function downloadPdf() {
 
     if (isRbcExport) {
       await saveRbcPdf(filename);
+      setSaveStatus(`Saved ${filename}`, "success");
+      return;
+    }
+
+    if (isBmoExport) {
+      await saveBmoPdf(filename);
       setSaveStatus(`Saved ${filename}`, "success");
       return;
     }
@@ -1767,6 +1826,167 @@ function writeRbcRows(tableBody, rows) {
   }
 }
 
+function buildBmoPages(bmoData) {
+  const openingBalance = toNumber(bmoData.openingBalance);
+  const transactions = (bmoData.transactions ?? []).map((row) => ({
+    date:        safeText(row?.date),
+    description: safeText(row?.description),
+    deducted:    Math.max(0, toNumber(row?.deducted)),
+    added:       Math.max(0, toNumber(row?.added)),
+  }));
+
+  const rowsPerPage = 15;
+  const page1Transactions = transactions.slice(0, rowsPerPage);
+  const page2Transactions = transactions.slice(rowsPerPage);
+
+  let runningBalance = openingBalance;
+  let totalDeducted  = 0;
+  let totalAdded     = 0;
+
+  const toRenderedRows = (rows) =>
+    rows.map((row) => {
+      totalDeducted  += row.deducted;
+      totalAdded     += row.added;
+      runningBalance += row.added - row.deducted;
+      return { ...row, balance: runningBalance };
+    });
+
+  const page1Rows        = toRenderedRows(page1Transactions);
+  const balanceAfterPage1 = runningBalance;
+  const page2Rows        = toRenderedRows(page2Transactions);
+  const closingBalance   = runningBalance;
+
+  return { page1Rows, page2Rows, totalDeducted, totalAdded, closingBalance, balanceAfterPage1 };
+}
+
+// ── Standalone Node.js helper (no DOM needed) ─────────────────────────────
+// Compute opening balance required to hit a target closing balance.
+// Works for any number of transactions.
+function computeOpeningBalance(transactions, targetClosing) {
+  const net = transactions.reduce((s, t) => s + (t.added || 0) - (t.deducted || 0), 0);
+  return +((targetClosing - net).toFixed(2));
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6.  renderBmoRows  (app.js, line 3429)
+//     Writes rendered transaction rows into a DOM <tbody>.
+//     Each row gets a running balance column (pre-calculated by buildBmoPages).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderBmoRows(target, rows) {
+  if (!target) return;
+  target.innerHTML = rows
+    .map((row) => {
+      const descHtml = escapeAttr(row.description).replace(/\\n|\n/g, "<br>");
+      return `<tr class="bmo-tx-row">
+        <td class="bmo-td-date"><strong>${escapeAttr(row.date)}</strong></td>
+        <td class="bmo-td-desc">${descHtml}</td>
+        <td class="bmo-td-amount">${row.deducted > 0 ? formatMoney(row.deducted) : ""}</td>
+        <td class="bmo-td-amount">${row.added    > 0 ? formatMoney(row.added)    : ""}</td>
+        <td class="bmo-td-bal">${formatMoney(row.balance)}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7.  renderBmoPreview  (app.js, line 3447)
+//     Populates the live 2-page DOM preview from a full `data` object.
+//     Requires the HTML in §11 to be in the document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderBmoPreview(data) {
+  const bmo            = data.bmoStatement ?? {};
+  const openingBalance = toNumber(bmo.openingBalance);
+  const layout         = buildBmoPages(bmo);
+
+  const set    = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? ""; };
+  const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML  = val ?? ""; };
+
+  // ── Page 1 header fields ────────────────────────────────────────────────
+  setHtml("pvBmBranchAddress1", (bmo.branchAddress ?? "").replace(/\n/g, "<br>"));
+  set("pvBmBranchName1",  bmo.branchName  ?? "");
+  set("pvBmTransitNo1",   bmo.transitNo   ?? "");
+  set("pvBmPhone1",       bmo.phone       ?? "");
+  set("pvBmPlanName1",    bmo.planName    ?? "");
+  setHtml("pvBmName1",    (bmo.name    ?? "").replace(/\n/g, "<br>"));
+  setHtml("pvBmAddress1", (bmo.address ?? "").replace(/\n/g, "<br>"));
+  set("pvBmPeriodEnd1",   bmo.periodEnd   ?? "");
+  set("pvBmSummaryDate",  bmo.periodEnd   ?? "");
+  set("pvBmAccountType1", bmo.accountType ?? "");
+  set("pvBmAccountNo1",   bmo.accountNo   ?? "");
+
+  // ── Summary row ─────────────────────────────────────────────────────────
+  set("pvBmSummaryOpen",     formatMoney(openingBalance));
+  set("pvBmSummaryDeducted", formatMoney(layout.totalDeducted));
+  set("pvBmSummaryAdded",    formatMoney(layout.totalAdded));
+  set("pvBmSummaryClose",    formatMoney(layout.closingBalance));
+
+  // ── Page 1 ledger ───────────────────────────────────────────────────────
+  const firstDate = (bmo.transactions ?? [])[0]?.date ?? "";
+  const lastDate  = (bmo.transactions ?? [])[(bmo.transactions ?? []).length - 1]?.date ?? "";
+
+  const accountHeaderHtml = `
+    <tr class="bmo-acct-hdr-row">
+      <td colspan="5"><span class="bmo-acct-icon"></span><strong>${escapeAttr(bmo.accountType ?? "")}# ${escapeAttr(bmo.accountNo ?? "")}</strong></td>
+    </tr>
+    <tr class="bmo-owner-row">
+      <td colspan="5">Owner:<br>${escapeAttr(bmo.name ?? "")}</td>
+    </tr>`;
+
+  const openingRowHtml = `<tr class="bmo-opening-row">
+    <td class="bmo-td-date"><strong>${escapeAttr(firstDate)}</strong></td>
+    <td class="bmo-td-desc"><strong>Opening balance</strong></td>
+    <td class="bmo-td-amount"></td>
+    <td class="bmo-td-amount"></td>
+    <td class="bmo-td-bal"><strong>${formatMoney(openingBalance)}</strong></td>
+  </tr>`;
+
+  const pvPage1 = document.getElementById("pvBmRowsPage1");
+  if (pvPage1) {
+    pvPage1.innerHTML = accountHeaderHtml + openingRowHtml;
+    const tmp = document.createElement("tbody");
+    renderBmoRows(tmp, layout.page1Rows);
+    pvPage1.innerHTML += tmp.innerHTML;
+  }
+
+  // ── Page 2 ledger ───────────────────────────────────────────────────────
+  const accountHeaderHtmlP2 = `
+    <tr class="bmo-acct-hdr-row">
+      <td colspan="4"><strong>${escapeAttr(bmo.accountType ?? "")}# ${escapeAttr(bmo.accountNo ?? "")}</strong></td>
+      <td class="bmo-p2-continued">(continued)</td>
+    </tr>`;
+
+  const closingRowHtml = `<tr class="bmo-closing-row">
+    <td class="bmo-td-date"><strong>${escapeAttr(lastDate)}</strong></td>
+    <td class="bmo-td-desc"><strong>Closing totals</strong></td>
+    <td class="bmo-td-amount"><strong>${formatMoney(layout.totalDeducted)}</strong></td>
+    <td class="bmo-td-amount"><strong>${formatMoney(layout.totalAdded)}</strong></td>
+    <td class="bmo-td-bal"></td>
+  </tr>`;
+
+  const pvPage2 = document.getElementById("pvBmRowsPage2");
+  if (pvPage2) {
+    pvPage2.innerHTML = accountHeaderHtmlP2;
+    const tmp2 = document.createElement("tbody");
+    renderBmoRows(tmp2, layout.page2Rows);
+    pvPage2.innerHTML += tmp2.innerHTML + closingRowHtml;
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8.  saveBmoPdf  (app.js, line 3521)
+//     Saves a 2-page US Letter PDF.
+//     saveTwoPagePdf() captures #bmoPage1 then #bmoPage2 at Letter dimensions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function saveBmoPdf(filename) {
+  return saveTwoPagePdf(filename, "bmoPage1", "bmoPage2", "letter");
+}
+
 function getCurrentFormData() {
   return {
     documentType: getDocumentType(),
@@ -1843,6 +2063,20 @@ function getCurrentFormData() {
       statementTo: safeText(elements.rbTo.value),
       openingBalance: toNumber(elements.rbOpeningBalance.value),
       transactions: readRbcRows(elements.rbcTransactionsTable),
+    },
+    bmoStatement: {
+      name: safeText(elements.bmName.value),
+      address: elements.bmAddress.value.trim(),
+      branchAddress: elements.bmBranchAddress.value.trim(),
+      branchName: safeText(elements.bmBranchName.value),
+      transitNo: safeText(elements.bmTransitNo.value),
+      phone: safeText(elements.bmPhone.value),
+      planName: safeText(elements.bmPlanName.value),
+      accountNo: safeText(elements.bmAccountNo.value),
+      accountType: safeText(elements.bmAccountType.value),
+      periodEnd: safeText(elements.bmPeriodEnd.value),
+      openingBalance: toNumber(elements.bmOpeningBalance.value),
+      transactions: readBmoRows(elements.bmoTransactionsTable),
     },
     noaStatement: {
       name: safeText(elements.noaName.value),
@@ -1978,6 +2212,20 @@ function hydrateForm(data) {
   elements.rbTo.value = rbc.statementTo ?? "";
   elements.rbOpeningBalance.value = rbc.openingBalance ?? "";
   writeRbcRows(elements.rbcTransactionsTable, rbc.transactions ?? []);
+
+  const bmo = data.bmoStatement ?? {};
+  elements.bmName.value = bmo.name ?? "";
+  elements.bmAddress.value = bmo.address ?? "";
+  elements.bmBranchAddress.value = bmo.branchAddress ?? "";
+  elements.bmBranchName.value = bmo.branchName ?? "";
+  elements.bmTransitNo.value = bmo.transitNo ?? "";
+  elements.bmPhone.value = bmo.phone ?? "";
+  elements.bmPlanName.value = bmo.planName ?? "";
+  elements.bmAccountNo.value = bmo.accountNo ?? "";
+  elements.bmAccountType.value = bmo.accountType ?? "";
+  elements.bmPeriodEnd.value = bmo.periodEnd ?? "";
+  elements.bmOpeningBalance.value = bmo.openingBalance ?? "";
+  writeBmoRows(elements.bmoTransactionsTable, bmo.transactions ?? []);
 
   const noa = data.noaStatement ?? {};
   elements.noaName.value = noa.name ?? "";
@@ -4626,6 +4874,7 @@ function renderPreview() {
   renderScotiaPreview(data);
   renderCibcPreview(data);
   renderRbcPreview(data);
+  renderBmoPreview(data);
   renderNoaPreview(data);
   renderT4Preview(data);
   renderBmoVoidPreview(data);
@@ -4760,6 +5009,8 @@ function exportJson() {
         ? "cibc-statement.json"
       : getDocumentType() === "rbcStatement"
         ? "rbc-statement.json"
+      : getDocumentType() === "bmoStatement"
+        ? "bmo-statement.json"
       : getDocumentType() === "noaStatement"
         ? "noa-statement.json"
       : getDocumentType() === "t4Slip"
@@ -4806,6 +5057,8 @@ function attachTableEvents(tableBody, tableKind) {
         addCibcRow(tableBody, values);
       } else if (tableKind === "rbc") {
         addRbcRow(tableBody, values);
+      } else if (tableKind === "bmo") {
+        addBmoRow(tableBody, values);
       } else if (tableKind === "noa") {
         addNoaRow(tableBody, values);
       } else if (tableKind === "statement") {
@@ -4893,6 +5146,11 @@ function init() {
     renderPreview();
   });
 
+  elements.addBmoRowBtn.addEventListener("click", () => {
+    addBmoRow(elements.bmoTransactionsTable, { date: "", description: "", deducted: "", added: "" });
+    renderPreview();
+  });
+
   elements.addNoaRowBtn.addEventListener("click", () => {
     addNoaRow(elements.noaSummaryTable, { line: "", description: "", amount: "", crdr: "" });
     renderPreview();
@@ -4904,6 +5162,7 @@ function init() {
   attachTableEvents(elements.scotiaTransactionsTable, "scotia");
   attachTableEvents(elements.cibcTransactionsTable, "cibc");
   attachTableEvents(elements.rbcTransactionsTable, "rbc");
+  attachTableEvents(elements.bmoTransactionsTable, "bmo");
   attachTableEvents(elements.noaSummaryTable, "noa");
 
   for (const field of [
@@ -4998,6 +5257,17 @@ function init() {
     elements.rbFrom,
     elements.rbTo,
     elements.rbOpeningBalance,
+    elements.bmName,
+    elements.bmAddress,
+    elements.bmBranchAddress,
+    elements.bmBranchName,
+    elements.bmTransitNo,
+    elements.bmPhone,
+    elements.bmPlanName,
+    elements.bmAccountNo,
+    elements.bmAccountType,
+    elements.bmPeriodEnd,
+    elements.bmOpeningBalance,
   ]) {
     if (!field) continue;
     field.addEventListener("input", renderPreview);

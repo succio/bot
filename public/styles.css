@@ -3770,3 +3770,450 @@ button:hover {
 .td-void-text.td-center { text-align: center; }
 .cibc-void-text.cibc-right { text-align: right; }
 .cibc-void-text.cibc-center { text-align: center; }
+
+
+/* BMO statement */
+
+/* Outer report container */
+.bmo-report {
+  background: #fff;
+}
+
+/* Single page — US Letter pixel equivalent (816 x 1056 px) */
+.bmo-page {
+  width: 816px;
+  min-height: 1056px;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9.5px;
+  padding: 40px 36px 60px 36px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Page 2 top spacing */
+.bmo-page-break {
+  border-top: none;
+  margin-top: 24px;
+  padding-top: 32px;
+}
+
+
+/* Two-column header row */
+.bmo-header-row {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 14px;
+  min-height: 200px;
+}
+
+/* LEFT column: branch address / customer name+address / stmt title */
+.bmo-left-col {
+  flex: 0 0 58%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 14px;
+}
+
+.bmo-branch-section p {
+  margin: 0;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.bmo-branch-label {
+  font-weight: bold;
+  font-size: 8px !important;
+  letter-spacing: 0;
+}
+
+.bmo-branch-addr {
+  font-size: 8px !important;
+}
+
+.bmo-customer-section {
+  padding-left: 40px;
+}
+
+.bmo-title-section {
+  padding-top: 4px;
+}
+
+.bmo-customer-name {
+  font-weight: bold;
+  font-size: 9.5px;
+  margin: 0 0 1px 0;
+  letter-spacing: 0;
+}
+
+.bmo-customer-address {
+  font-size: 8.5px;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* RIGHT column: Everyday Banking title / photo / info block */
+.bmo-right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-left: 16px;
+}
+
+
+/* "Everyday Banking" serif italic heading (top right) */
+.bmo-everyday-title {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 26px;
+  font-weight: bold;
+  font-style: italic;
+  color: #000;
+  margin: 0 0 5px 0;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+/* "Your Everyday Banking statement" (bottom of left col) */
+.bmo-stmt-title {
+  font-size: 22px;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  line-height: 1.2;
+  color: #000;
+  letter-spacing: 0;
+}
+
+/* "For the period ending ..." line below stmt title */
+.bmo-period-line {
+  font-size: 8.5px;
+  margin: 8px 0 0 0;
+  padding-left: 16px;
+  color: #000;
+}
+
+
+/* Header photo strip (fills right-col width, fixed height, cropped center) */
+.bmo-photo-img {
+  width: 100%;
+  height: 88px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  margin-bottom: 8px;
+}
+
+
+/* Small info paragraphs below the photo */
+.bmo-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.bmo-info-block p {
+  margin: 0 0 7px 0;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.bmo-info-block strong {
+  font-size: 8px;
+}
+
+
+/* "Summary of your account" / "Here's what happened..." headings */
+.bmo-section-heading {
+  font-size: 14px;
+  font-weight: bold;
+  margin: 10px 0 5px 0;
+  padding-bottom: 2px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  letter-spacing: 0;
+}
+
+
+/* Summary area: table (left) + fraud box (right) */
+.bmo-summary-area {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: stretch;
+}
+
+/* Account summary table */
+.bmo-summary-table {
+  flex: 1;
+  border-collapse: collapse;
+  font-size: 9px;
+  min-width: 0;
+}
+
+.bmo-summary-table th {
+  border: none;
+  padding: 3px 4px;
+  text-align: right;
+  vertical-align: bottom;
+  line-height: 1.25;
+  font-weight: bold;
+  background: #fff;
+  font-size: 9px;
+}
+
+/* Bottom border on last header row + account/operator header cells */
+.bmo-summary-table thead tr:last-child th,
+.bmo-summary-table thead .bmo-sum-acct,
+.bmo-summary-table thead .bmo-sum-op {
+  border-bottom: 1.5px solid #000;
+  padding-bottom: 4px;
+}
+
+.bmo-summary-table td {
+  border: none;
+  padding: 5px 4px;
+  text-align: right;
+  vertical-align: middle;
+  font-size: 9px;
+}
+
+/* "Account" column — left-aligned */
+.bmo-sum-acct {
+  text-align: left !important;
+  min-width: 105px;
+}
+
+.bmo-sum-acct-cell {
+  text-align: left !important;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+/* Numeric balance cells */
+.bmo-sum-num {
+  text-align: right !important;
+  white-space: nowrap;
+  min-width: 65px;
+}
+
+/* + = operator cells */
+.bmo-sum-op {
+  width: 14px !important;
+  min-width: 14px;
+  text-align: center !important;
+  font-weight: bold;
+  font-size: 9px;
+  padding: 3px 1px !important;
+  border: none;
+}
+
+/* Account number sub-label */
+.bmo-acct-num {
+  font-size: 7.5px;
+  color: #333;
+}
+
+/* Fraud warning box (right of summary table) */
+.bmo-fraud-box {
+  flex: 0 0 185px;
+  border: none;
+  padding: 5px 6px;
+  font-size: 7.5px;
+  line-height: 1.4;
+  color: #000;
+}
+
+.bmo-fraud-box p { margin: 0; }
+
+
+/* Main transaction ledger */
+.bmo-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8px;
+}
+
+/* Header row borders */
+.bmo-ledger thead tr {
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+}
+
+.bmo-ledger thead th {
+  font-weight: bold;
+  padding: 3px 4px;
+  vertical-align: bottom;
+  text-align: left;
+  line-height: 1.3;
+  font-size: 8px;
+  border-bottom: 1px solid #000;
+}
+
+/* Column widths */
+.bmo-col-date   { width: 8%; }
+.bmo-col-desc   { width: 42%; }
+.bmo-col-amount { width: 18%; text-align: right; }
+.bmo-col-bal    { width: 14%; text-align: right; }
+
+.bmo-ledger thead th.bmo-col-amount,
+.bmo-ledger thead th.bmo-col-bal { text-align: right; }
+
+/* Account header row (account type + number) */
+.bmo-acct-hdr-row td {
+  padding: 4px 4px 1px 4px;
+  font-size: 8px;
+  font-weight: bold;
+  border-top: none;
+  border-bottom: none;
+  background: #fff;
+}
+
+/* Icon placeholder (hidden — real statement uses icon font) */
+.bmo-acct-icon {
+  display: none;
+}
+
+/* Owner row */
+.bmo-owner-row td {
+  padding: 0px 4px 3px 4px;
+  font-size: 8px;
+  color: #000;
+  border-top: none;
+  border-bottom: 1px solid #bbb;
+}
+
+/* Opening balance row */
+.bmo-opening-row td {
+  padding: 4px 4px;
+  border-bottom: 1px solid #bbb;
+  font-size: 8px;
+}
+
+/* Transaction rows */
+.bmo-tx-row td {
+  padding: 4px 4px;
+  border-bottom: 1px solid #bbb;
+  vertical-align: top;
+  line-height: 1.35;
+  font-size: 8px;
+}
+
+/* Closing totals row */
+.bmo-closing-row td {
+  padding: 3px 4px;
+  border: none;
+  font-size: 8px;
+}
+
+/* TD helpers */
+.bmo-td-date   { width: 8%;  white-space: nowrap; }
+.bmo-td-desc   { width: 42%; }
+.bmo-td-amount { width: 18%; text-align: right; white-space: nowrap; }
+.bmo-td-bal    { width: 14%; text-align: right; white-space: nowrap; }
+
+/* Page 2 account header "(continued)" cell */
+.bmo-p2-continued {
+  text-align: right;
+  font-style: italic;
+  font-size: 8px;
+}
+
+/* "continued" text after page 1 ledger */
+.bmo-continued {
+  text-align: right;
+  font-style: italic;
+  font-size: 8px;
+  margin: 3px 0 0 0;
+  color: #000;
+}
+
+
+/* Absolute-positioned footer: code + page# (left) / logo (right) */
+.bmo-page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: none;
+  padding-top: 4px;
+  position: absolute;
+  bottom: 18px;
+  left: 36px;
+  right: 36px;
+}
+
+.bmo-footer-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+/* Form code e.g. "15130E (99/02)" */
+.bmo-footer-code {
+  font-size: 7.5px;
+  color: #444;
+}
+
+/* "Page 1 of 2" */
+.bmo-footer-page {
+  font-size: 8px;
+  font-weight: normal;
+}
+
+.bmo-footer-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* BMO logo image */
+.bmo-logo-img {
+  height: 60px;
+  width: auto;
+  display: block;
+}
+
+/* "A member of BMO Financial Group" */
+.bmo-member-tagline {
+  font-size: 7px;
+  color: #333;
+  margin-top: 1px;
+  text-align: right;
+}
+
+
+/* Page 2 heading */
+.bmo-page2-heading {
+  font-size: 14px;
+  font-weight: bold;
+  border-bottom: none;
+  padding-bottom: 3px;
+  margin: 0 0 5px 0;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+/* Page 2 ledger has no top border on thead */
+.bmo-page-two .bmo-ledger thead tr {
+  border-top: none;
+}
+
+/* Disclaimer / trade-marks block */
+.bmo-page2-disclaimer {
+  margin-top: 14px;
+  font-size: 8.5px;
+  line-height: 1.45;
+  color: #000;
+  border-top: none;
+  padding-top: 8px;
+}
+
+.bmo-page2-disclaimer p {
+  margin: 0 0 5px 0;
+}
+
+/* Page 2 footer — inherits .bmo-page-footer positioning */
+.bmo-page-footer-p2 {}
+

@@ -182,6 +182,27 @@ Return shape:
   }
 }
 
+=== DOCUMENT TYPE: bmoStatement ===
+{
+  "documentType": "bmoStatement",
+  "bmoStatement": {
+    "name": "string — ALL CAPS",
+    "address": "string — use \\n for line breaks",
+    "branchAddress": "string — use \\n for line breaks",
+    "branchName": "string — e.g. BMO Bank of Montreal",
+    "transitNo": "string",
+    "phone": "string — e.g. 1-800-363-9992",
+    "planName": "string — e.g. Performance Chequing",
+    "accountNo": "string",
+    "accountType": "string — e.g. Primary Chequing Account",
+    "periodEnd": "string — e.g. Jul 31, 2026",
+    "openingBalance": number,
+    "transactions": [
+      {"date":"string — e.g. Jul 01","description":"string — use \\n for detail line","deducted":number,"added":number}
+    ]
+  }
+}
+
 === DOCUMENT TYPE: noaStatement ===
 {
   "documentType": "noaStatement",
@@ -522,7 +543,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // ─── Bank Package multi-month generation ──────────────────────────────────────
-const BANK_DOC_TYPES = { td: 'statement', scotia: 'scotiaStatement', cibc: 'cibcStatement', rbc: 'rbcStatement' };
+const BANK_DOC_TYPES = { td: 'statement', bmo: 'bmoStatement', scotia: 'scotiaStatement', cibc: 'cibcStatement', rbc: 'rbcStatement' };
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MONTH_UPPER = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const MONTH_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -542,6 +563,7 @@ function formatPeriod(bank, year, month) {
     case 'scotia':return { from: `${s} 18, ${year}`, to: `${ns} 17, ${ny}` };
     case 'cibc':  return { from: `${s} 1`, to: `${s} ${d}, ${year}` };
     case 'rbc':   return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
+    case 'bmo':   return { from: `${s} 01, ${year}`, to: `${s} ${d}, ${year}` };
     default:      return { from: `${s} 01/${yr2}`, to: `${s} ${d}/${yr2}` };
   }
 }
@@ -551,6 +573,8 @@ function calcClosing(openingBalance, transactions, bank) {
   for (const tx of (transactions || [])) {
     if (bank === 'td') {
       bal += (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
+    } else if (bank === 'bmo') {
+      bal += (Number(tx.added) || 0) - (Number(tx.deducted) || 0);
     } else {
       bal += (Number(tx.deposited) || 0) - (Number(tx.withdrawn) || 0);
     }
@@ -605,6 +629,7 @@ function requestedTransactionCount(bank, details) {
   const count = match ? parseInt(match[1], 10) : 50;
   if (bank === 'scotia') return Math.min(count, 34);
   if (bank === 'rbc') return Math.min(count, 40);
+  if (bank === 'bmo') return Math.min(count, 25);
   return bank === 'cibc' ? Math.min(count, 30) : count;
 }
 
@@ -662,6 +687,8 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
       fillers.push({ date: `${ms} ${day}`, description: merchant, detail: '', withdrawn: amount, deposited: 0 });
     } else if (bank === 'rbc') {
       fillers.push({ date: `${dayStr} ${ms}`, description: merchant, withdrawn: amount, deposited: 0 });
+    } else if (bank === 'bmo') {
+      fillers.push({ date: `${ms} ${dayStr}`, description: `Debit Card Purchase\n${titleCaseMerchant(merchant)}`, deducted: amount, added: 0 });
     }
   }
 
@@ -751,7 +778,29 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       const localArea = localAreaFromDetails(details);
 
       // Pad transactions server-side if the AI returned fewer than requested
-      const inner = parsed[docType] || parsed.statement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      if (bank === 'bmo') {
+        parsed.documentType = 'bmoStatement';
+        parsed.bmoStatement = inner;
+        const period = formatPeriod(bank, curYear, curMonth);
+        inner.name ||= '';
+        inner.address ||= '';
+        inner.branchAddress ||= '';
+        inner.branchName ||= 'BMO Bank of Montreal';
+        inner.transitNo ||= '';
+        inner.phone ||= '1-800-363-9992';
+        inner.planName ||= 'Performance Chequing';
+        inner.accountNo ||= '';
+        inner.accountType ||= 'Primary Chequing Account';
+        inner.periodEnd ||= period.to;
+        inner.openingBalance = currentBalance;
+        inner.transactions = (inner.transactions || []).map((tx) => ({
+          date: tx.date || '',
+          description: tx.description || tx.detail || '',
+          deducted: Number(tx.deducted ?? tx.withdrawn ?? tx.debit ?? 0) || 0,
+          added: Number(tx.added ?? tx.deposited ?? tx.credit ?? 0) || 0
+        }));
+      }
       if (inner.transactions) {
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
       }

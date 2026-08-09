@@ -51,6 +51,7 @@
           <option value="scotiaStatement">Scotia Statement</option>
           <option value="cibcStatement">CIBC Statement</option>
           <option value="rbcStatement">RBC Statement</option>
+          <option value="bmoStatement">BMO Statement</option>
           <option value="noaStatement">NOA</option>
           <option value="t4Slip">T4 Slip</option>
           <option value="bmoVoidCheck">BMO Void Cheque</option>
@@ -522,6 +523,78 @@ CALGARY AB T6M 0Y7</textarea>
             </table>
           </div>
         </div>
+
+<div id="bmoStatementControls" class="doc-section is-hidden">
+  <h2>BMO Statement</h2>
+  <label>
+    Name
+    <input id="bmName" type="text" />
+  </label>
+  <label>
+    Address (one line per row)
+    <textarea id="bmAddress" rows="3"></textarea>
+  </label>
+  <label>
+    Your branch address (top left)
+    <textarea id="bmBranchAddress" rows="2"></textarea>
+  </label>
+  <div class="grid two">
+    <label>
+      Branch name
+      <input id="bmBranchName" type="text" />
+    </label>
+    <label>
+      Transit number
+      <input id="bmTransitNo" type="text" />
+    </label>
+  </div>
+  <div class="grid two">
+    <label>
+      Phone
+      <input id="bmPhone" type="text" />
+    </label>
+    <label>
+      Your Plan
+      <input id="bmPlanName" type="text" />
+    </label>
+  </div>
+  <div class="grid two">
+    <label>
+      Account No.
+      <input id="bmAccountNo" type="text" />
+    </label>
+    <label>
+      Account type
+      <input id="bmAccountType" type="text" />
+    </label>
+  </div>
+  <label>
+    Period ending (e.g. April 09, 2026)
+    <input id="bmPeriodEnd" type="text" />
+  </label>
+  <label>
+    Opening balance
+    <input id="bmOpeningBalance" type="number" step="0.01" />
+  </label>
+
+  <h2>Transaction Rows</h2>
+  <p class="hint">Date, description (use \\n for line 2), deducted, added. Balance auto-calculated.</p>
+  <button id="addBmoRowBtn" type="button">+ Add Row</button>
+  <div class="table-wrap">
+    <table class="editor-table" id="bmoTransactionsTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Deducted</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 
         <div id="noaControls" class="doc-section is-hidden">
           <h2>Notice of Assessment (NOA)</h2>
@@ -1542,6 +1615,161 @@ If you have any questions about your assessment, please call our Individual Tax 
             <p class="rbc-page-number">2</p>
           </section>
         </article>
+
+<article class="bmo-report is-hidden" id="bmoReport">
+
+  <!-- ── PAGE 1 ─────────────────────────────────────────────────────────── -->
+  <section class="bmo-page bmo-page-one" id="bmoPage1">
+
+    <!-- TOP HEADER: two columns -->
+    <div class="bmo-header-row">
+      <!-- LEFT: branch address + customer block -->
+      <div class="bmo-left-col">
+        <div class="bmo-branch-section">
+          <p class="bmo-branch-label">Your branch address:</p>
+          <p class="bmo-branch-addr" id="pvBmBranchAddress1"></p>
+        </div>
+        <div class="bmo-customer-section">
+          <p class="bmo-customer-name"    id="pvBmName1"></p>
+          <p class="bmo-customer-address" id="pvBmAddress1"></p>
+        </div>
+        <div class="bmo-title-section">
+          <h2 class="bmo-stmt-title">Your Everyday Banking statement</h2>
+          <p class="bmo-period-line">For the period ending <span id="pvBmPeriodEnd1"></span></p>
+        </div>
+      </div>
+      <!-- RIGHT: title + photo + info block -->
+      <div class="bmo-right-col">
+        <h1 class="bmo-everyday-title">Everyday Banking</h1>
+        <img class="bmo-photo-img" src="/bmo-photo.png" alt="" />
+        <div class="bmo-info-block">
+          <p><strong>Your Branch</strong><br>
+            <span id="pvBmBranchName1"></span><br>
+            Transit number: <span id="pvBmTransitNo1"></span>
+          </p>
+          <p><strong>For questions about your statement call</strong><br>
+            <span id="pvBmPhone1"></span>
+          </p>
+          <p><strong>Direct Banking</strong><br>
+            1-800-363-9992<br>
+            www.bmo.com
+          </p>
+          <p><strong>Your Plan</strong><br>
+            <span id="pvBmPlanName1"></span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUMMARY TABLE -->
+    <h3 class="bmo-section-heading">Summary of your account</h3>
+    <div class="bmo-summary-area">
+      <table class="bmo-summary-table">
+        <thead>
+          <tr>
+            <th class="bmo-sum-acct" rowspan="2" style="vertical-align:bottom">Account</th>
+            <th>Opening</th>
+            <th>Total amounts</th>
+            <th class="bmo-sum-op" rowspan="2">+</th>
+            <th>Total amounts</th>
+            <th class="bmo-sum-op" rowspan="2">=</th>
+            <th>Closing</th>
+          </tr>
+          <tr>
+            <th>balance($)</th>
+            <th>deducted($)</th>
+            <th>added($)</th>
+            <th>balance($) on<br><span id="pvBmSummaryDate"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="bmo-sum-acct-cell">
+              <span id="pvBmAccountType1"></span><br>
+              <span class="bmo-acct-num"># <span id="pvBmAccountNo1"></span></span>
+            </td>
+            <td class="bmo-sum-num" id="pvBmSummaryOpen"></td>
+            <td class="bmo-sum-num" id="pvBmSummaryDeducted"></td>
+            <td class="bmo-sum-op"></td>
+            <td class="bmo-sum-num" id="pvBmSummaryAdded"></td>
+            <td class="bmo-sum-op"></td>
+            <td class="bmo-sum-num" id="pvBmSummaryClose"></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="bmo-fraud-box">
+        <p>Avoid romance scams. Criminals adopt a fake identity to gain affection and trust and then
+        manipulate or steal from victims. For more security tips — including an article on Romance scams —
+        visit <strong>bmo.com/security</strong></p>
+      </div>
+    </div>
+
+    <!-- LEDGER PAGE 1 -->
+    <h3 class="bmo-section-heading bmo-ledger-heading">Here's what happened in your account</h3>
+    <table class="bmo-ledger">
+      <thead>
+        <tr>
+          <th class="bmo-col-date">Date</th>
+          <th class="bmo-col-desc">Description</th>
+          <th class="bmo-col-amount">Amounts deducted<br>from your account($)</th>
+          <th class="bmo-col-amount">Amounts added<br>to your account($)</th>
+          <th class="bmo-col-bal">Balance($)</th>
+        </tr>
+      </thead>
+      <!-- Opening balance + first 15 transaction rows injected here -->
+      <tbody id="pvBmRowsPage1"></tbody>
+    </table>
+    <p class="bmo-continued">continued</p>
+
+    <div class="bmo-page-footer">
+      <div class="bmo-footer-left">
+        <span class="bmo-footer-code">15130E (99/02)</span>
+        <span class="bmo-footer-page">Page 1 of 2</span>
+      </div>
+      <div class="bmo-footer-logo">
+        <img src="/bmo-logo.png" alt="BMO Bank of Montreal" class="bmo-logo-img" />
+        <span class="bmo-member-tagline">A member of BMO Financial Group</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PAGE 2 ─────────────────────────────────────────────────────────── -->
+  <section class="bmo-page bmo-page-two bmo-page-break" id="bmoPage2">
+    <h3 class="bmo-page2-heading">Here's what happened in your account (continued)</h3>
+    <table class="bmo-ledger">
+      <thead>
+        <tr>
+          <th class="bmo-col-date">Date</th>
+          <th class="bmo-col-desc">Description</th>
+          <th class="bmo-col-amount">Amounts deducted<br>from your account($)</th>
+          <th class="bmo-col-amount">Amounts added<br>to your account($)</th>
+          <th class="bmo-col-bal">Balance($)</th>
+        </tr>
+      </thead>
+      <!-- Rows 16+ + closing totals injected here -->
+      <tbody id="pvBmRowsPage2"></tbody>
+    </table>
+
+    <div class="bmo-page2-disclaimer">
+      <p>Please report any errors, omissions or irregularities in writing within 30 days of the statement
+      date after which this statement shall be deemed accurate except for any amount credited to your
+      account in error.</p>
+      <p><strong>Trade-marks</strong></p>
+      <p><sup>TM</sup>/® Trade-marks / registered trade-marks of Bank of Montreal<br>
+      ♦ Trademarks of AIR MILES International Trading B.V. Used under license by LoyaltyOne Inc. and Bank of Montreal.<br>
+      ® Registered trademark of Mastercard International Incorporated.<br>
+      ®** Used by Amex Canada Inc under license from American Express Company.</p>
+      <p>Registration numbers<br>
+      GST - R100390095 &nbsp;&nbsp; QST - 1000042494</p>
+      <p>A member of BMO Financial Group</p>
+    </div>
+
+    <div class="bmo-page-footer bmo-page-footer-p2">
+      <span class="bmo-footer-page">Page 2 of 2</span>
+    </div>
+  </section>
+
+</article>
 
         <article class="noa-report is-hidden" id="noaReport">
           <section class="noa-page noa-page-one" id="noaPage1">
