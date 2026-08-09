@@ -2,11 +2,17 @@ const { Telegraf, Markup, session } = require('telegraf');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { users, scheduleSave } = require('../lib/store');
+const { JobQueue } = require('../lib/jobQueue');
 const { generatePdf } = require('./pdf');
 const { PACKAGES } = require('../routes/payments-shared');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 bot.use(session());
+
+const generationQueue = new JobQueue({
+  concurrency: parseInt(process.env.PDF_CONCURRENCY, 10) || 1,
+  name: 'telegram-generation'
+});
 
 function initSession(ctx) {
   if (!ctx.session) ctx.session = {};
@@ -67,6 +73,27 @@ function mainMenu() {
     ['📄 Generate Document', '💳 Buy Credits'],
     ['👤 My Account', '❓ Help']
   ]).resize();
+}
+
+function queueGeneration(ctx, sess, jobName, worker) {
+  const position = generationQueue.size + generationQueue.running + 1;
+  const data = JSON.parse(JSON.stringify(sess.data || {}));
+  sess.flow = null;
+  sess.step = null;
+  sess.data = {};
+
+  ctx.reply(
+    position > 1
+      ? `Queued ${jobName}. Position: ${position}. I'll send it here when it is ready.`
+      : `Queued ${jobName}. I'll send it here when it is ready.`,
+    mainMenu()
+  ).catch((err) => console.error('Queue notice error:', err.message));
+
+  generationQueue.add(() => worker(data))
+    .catch((err) => {
+      console.error(`${jobName} queued job error:`, err.stack || err.message);
+      return ctx.reply('⚠️ Generation failed. Please try again.', mainMenu()).catch(() => {});
+    });
 }
 
 const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
@@ -311,7 +338,7 @@ bot.on('text', async (ctx) => {
       const mo = parseInt(text);
       if (isNaN(mo) || mo < 1 || mo > 12) return ctx.reply('Please enter a month number between 1 and 12:');
       d.month = mo;
-      return finalizeBankStatement(ctx, sess);
+      return queueGeneration(ctx, sess, `${d.months}-month ${d.bank} statement`, (data) => finalizeBankStatement(ctx, data));
     }
   }
 
@@ -339,7 +366,7 @@ bot.on('text', async (ctx) => {
     if (sess.step === 'noa_crdr') {
       if (!['Balance Owing (DR)', 'Refund (CR)'].includes(text)) return ctx.reply('Please choose from the menu.');
       d.crdr = text.includes('DR') ? 'DR' : 'CR';
-      return finalizeNOA(ctx, sess);
+      return queueGeneration(ctx, sess, 'NOA', (data) => finalizeNOA(ctx, data));
     }
   }
 
@@ -353,7 +380,7 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
-      return finalizeT4(ctx, sess);
+      return queueGeneration(ctx, sess, 'T4', (data) => finalizeT4(ctx, data));
     }
   }
 
@@ -384,7 +411,7 @@ bot.on('text', async (ctx) => {
     if (sess.step === 'paystub_paydate') {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return ctx.reply('Please use YYYY-MM-DD format (e.g. 2025-01-31):');
       d.payDate = text;
-      return finalizePaystub(ctx, sess);
+      return queueGeneration(ctx, sess, 'paystub', (data) => finalizePaystub(ctx, data));
     }
   }
 
@@ -400,20 +427,20 @@ bot.on('text', async (ctx) => {
     if (sess.step === 'void_address') { d.address = text; sess.step = 'void_transit'; return ctx.reply('Transit number (5 digits):'); }
     if (sess.step === 'void_transit') { d.transit = text; sess.step = 'void_institution'; return ctx.reply('Institution number (3 digits):'); }
     if (sess.step === 'void_institution') { d.institution = text; sess.step = 'void_account'; return ctx.reply('Account number:'); }
-    if (sess.step === 'void_account') { d.account = text; return finalizeVoid(ctx, sess); }
+    if (sess.step === 'void_account') {
+      d.account = text;
+      return queueGeneration(ctx, sess, `${d.bank} void cheque`, (data) => finalizeVoid(ctx, data));
+    }
   }
 });
 
 // ─── Finalizers ───────────────────────────────────────────────────────────────
 
-async function finalizeBankStatement(ctx, sess) {
+async function finalizeBankStatement(ctx, d) {
   const user = getOrCreateTgUser(ctx);
-  if (user.credits < sess.data.months) {
-    return ctx.reply(`❌ Not enough credits. This package needs *${sess.data.months}* credit(s).`, { parse_mode: 'Markdown' });
+  if (user.credits < d.months) {
+    return ctx.reply(`❌ Not enough credits. This package needs *${d.months}* credit(s).`, { parse_mode: 'Markdown' });
   }
-
-  const d = sess.data;
-  sess.flow = null;
 
   await ctx.reply(`⏳ Generating your ${d.months}-month ${d.bank} statement... this takes a few seconds.`,
     mainMenu());
@@ -459,12 +486,9 @@ async function finalizeBankStatement(ctx, sess) {
   }
 }
 
-async function finalizeNOA(ctx, sess) {
+async function finalizeNOA(ctx, d) {
   const user = getOrCreateTgUser(ctx);
   if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
-
-  const d = sess.data;
-  sess.flow = null;
 
   await ctx.reply('⏳ Generating your NOA...',
     mainMenu());
@@ -505,12 +529,9 @@ async function finalizeNOA(ctx, sess) {
   }
 }
 
-async function finalizeT4(ctx, sess) {
+async function finalizeT4(ctx, d) {
   const user = getOrCreateTgUser(ctx);
   if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
-
-  const d = sess.data;
-  sess.flow = null;
 
   await ctx.reply('⏳ Generating your T4...',
     mainMenu());
@@ -550,12 +571,9 @@ async function finalizeT4(ctx, sess) {
   }
 }
 
-async function finalizeVoid(ctx, sess) {
+async function finalizeVoid(ctx, d) {
   const user = getOrCreateTgUser(ctx);
   if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
-
-  const d = sess.data;
-  sess.flow = null;
 
   await ctx.reply('⏳ Generating your void cheque...',
     mainMenu());
@@ -611,12 +629,9 @@ async function finalizeVoid(ctx, sess) {
   }
 }
 
-async function finalizePaystub(ctx, sess) {
+async function finalizePaystub(ctx, d) {
   const user = getOrCreateTgUser(ctx);
   if (user.credits < 1) return ctx.reply('❌ Not enough credits.');
-
-  const d = sess.data;
-  sess.flow = null;
 
   await ctx.reply('⏳ Generating your paystub...',
     mainMenu());
