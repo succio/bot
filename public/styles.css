@@ -3576,6 +3576,7 @@ button:hover {
 }
 
 .td-void-page {
+  --td-void-scale-x: 0.92;
   position: relative;
   width: min(100%, 210mm);
   aspect-ratio: 210 / 297;
@@ -3596,7 +3597,6 @@ button:hover {
 .bmo-void-bg-image,
 .scotia-void-bg-image,
 .rbc-void-bg-image,
-.td-void-bg-image,
 .cibc-void-bg-image {
   display: block;
   width: 100%;
@@ -3604,13 +3604,28 @@ button:hover {
   object-fit: cover;
 }
 
+.td-void-bg-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  transform: scaleX(var(--td-void-scale-x));
+  transform-origin: center top;
+}
+
 .bmo-void-overlay,
 .scotia-void-overlay,
 .rbc-void-overlay,
-.td-void-overlay,
 .cibc-void-overlay {
   position: absolute;
   inset: 0;
+}
+
+.td-void-overlay {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(var(--td-void-scale-x));
+  transform-origin: center top;
 }
 
 .bmo-void-text {

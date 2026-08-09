@@ -3447,7 +3447,7 @@ const TD_VOID_PREVIEW_FIELDS = [
 
 const TD_VOID_DIGIT_BOX_FIELDS = [
   {
-    key: "transit", fontSize: 9,
+    key: "transit", fontSize: 7.5,
     boxes: [
       { x1: 1069, y1: 580, x2: 1091, y2: 611 },
       { x1: 1120, y1: 580, x2: 1140, y2: 611 },
@@ -3457,7 +3457,7 @@ const TD_VOID_DIGIT_BOX_FIELDS = [
     ],
   },
   {
-    key: "institution", fontSize: 9,
+    key: "institution", fontSize: 7.5,
     boxes: [
       { x1: 1425, y1: 580, x2: 1447, y2: 611 },
       { x1: 1476, y1: 580, x2: 1498, y2: 611 },
@@ -3465,7 +3465,7 @@ const TD_VOID_DIGIT_BOX_FIELDS = [
     ],
   },
   {
-    key: "designation", fontSize: 9,
+    key: "designation", fontSize: 7.5,
     boxes: [
       { x1: 1717, y1: 580, x2: 1739, y2: 611 },
       { x1: 1768, y1: 580, x2: 1788, y2: 611 },
@@ -3474,7 +3474,7 @@ const TD_VOID_DIGIT_BOX_FIELDS = [
     ],
   },
   {
-    key: "account", fontSize: 9,
+    key: "account", fontSize: 7.5,
     boxes: [
       { x1: 2068, y1: 580, x2: 2090, y2: 611 },
       { x1: 2119, y1: 580, x2: 2139, y2: 611 },
