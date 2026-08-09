@@ -299,7 +299,12 @@ RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, yo
   Adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
   Do the arithmetic before generating — work backwards from the target if needed.
 
-RULE 3 — PROVINCE-AWARE MERCHANT NAMES (apply based on "Province" field):
+RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area" first, then "Province" field):
+  If "Local transaction area" is provided, all ordinary debit/withdrawal merchants must match that city/area.
+  Toronto → use Toronto-based merchants and services: Loblaws, Metro, FreshCo, Shoppers Drug Mart, TTC/PRESTO, Toronto Hydro, Tim Hortons, Starbucks, local restaurants and pharmacies, suffix ONCA.
+  Calgary → use Calgary-based merchants and services: Safeway, Co-op Grocery, Real Canadian Superstore, Shoppers Drug Mart, Calgary Transit, ENMAX, ATCO Gas, Tim Hortons, Starbucks, local restaurants and pharmacies, suffix ABCA.
+  Never use Ottawa/Nepean merchants for a Toronto address. Never use Edmonton merchants for a Calgary address.
+  If no local area is provided, apply the province rules:
   BC → suffix "BCCA", city Burnaby or Vancouver, utility BC Hydro, mobile Telus
   ON → suffix "ONCA", city Ottawa or Nepean, utility Hydro Ottawa, mobile Rogers
   AB → suffix "ABCA", city Calgary or Edmonton, utility ATCO Gas, mobile Shaw
@@ -312,7 +317,7 @@ RULE 3 — PROVINCE-AWARE MERCHANT NAMES (apply based on "Province" field):
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — PAYROLL PLACEMENT: Place payroll/direct deposit credits on the EXACT dates specified. Never move them.
+RULE 4 — PAYROLL PLACEMENT: Place payroll/direct deposit credits on the EXACT dates specified. Never move them. If "Payroll deposit description" is provided, use that exact text for payroll/direct-deposit credit descriptions.
 
 RULE 5 — CHRONOLOGICAL ORDER: All 50 transactions must be in strict ascending date order.
 
@@ -566,13 +571,40 @@ const FILLER_MERCHANTS = {
   NL: ['SHOPPERS DRUG MART ST JOHNS NLCA','SOBEYS ST JOHNS NLCA','TIM HORTONS ST JOHNS NLCA','MCDONALDS ST JOHNS NLCA','DOLLARAMA ST JOHNS NLCA'],
   PE: ['SHOPPERS DRUG MART CHARLOTTETOWN PECA','SOBEYS CHARLOTTETOWN PECA','TIM HORTONS CHARLOTTETOWN PECA','MCDONALDS CHARLOTTETOWN PECA'],
 };
+
+const LOCAL_FILLER_MERCHANTS = {
+  TORONTO: [
+    'LOBLAWS TORONTO ONCA', 'METRO TORONTO ONCA', 'FRESHCO TORONTO ONCA',
+    'SHOPPERS DRUG MART TORONTO ONCA', 'REXALL TORONTO ONCA',
+    'TIM HORTONS TORONTO ONCA', 'STARBUCKS TORONTO ONCA', 'SECOND CUP TORONTO ONCA',
+    'TTC PRESTO TORONTO ONCA', 'TORONTO HYDRO TORONTO ONCA',
+    'ROGERS TORONTO ONCA', 'DOLLARAMA TORONTO ONCA', 'WINNERS TORONTO ONCA',
+    'LCBO TORONTO ONCA', 'PIZZA PIZZA TORONTO ONCA'
+  ],
+  CALGARY: [
+    'SAFEWAY CALGARY ABCA', 'CO-OP GROCERY CALGARY ABCA', 'SUPERSTORE CALGARY ABCA',
+    'SHOPPERS DRUG MART CALGARY ABCA', 'REXALL CALGARY ABCA',
+    'TIM HORTONS CALGARY ABCA', 'STARBUCKS CALGARY ABCA', 'SECOND CUP CALGARY ABCA',
+    'CALGARY TRANSIT CALGARY ABCA', 'ENMAX CALGARY ABCA',
+    'ATCO GAS CALGARY ABCA', 'DOLLARAMA CALGARY ABCA', 'WINNERS CALGARY ABCA',
+    'SOBEYS CALGARY ABCA', 'BOSTON PIZZA CALGARY ABCA'
+  ],
+};
 const FILLER_AMOUNTS = [8.47, 12.33, 15.67, 18.99, 22.45, 25.11, 27.89, 31.42, 34.76, 37.23, 41.55, 44.88, 47.15, 9.63, 13.77, 16.44, 19.22, 23.88, 26.55, 29.14, 33.67, 36.41, 39.78, 43.22, 46.05];
 
-function padTransactions(txs, targetCount, bank, year, month, province) {
+function localAreaFromDetails(details) {
+  const match = String(details || '').match(/Local transaction area:\s*([^\n]+)/i);
+  const value = match ? match[1].trim().toUpperCase() : '';
+  if (value.includes('TORONTO')) return 'TORONTO';
+  if (value.includes('CALGARY')) return 'CALGARY';
+  return '';
+}
+
+function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
   if (txs.length >= targetCount) return txs;
   const needed = targetCount - txs.length;
   const prov = (province || 'ON').toUpperCase();
-  const pool = FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
+  const pool = LOCAL_FILLER_MERCHANTS[localArea] || FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
   const days = daysInMonth(year, month);
   const mu = MONTH_UPPER[month - 1];
   const ms = MONTH_SHORT[month - 1];
@@ -639,6 +671,10 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const provinceReminder = province
     ? `PROVINCE REMINDER: Province is ${province}. ALL merchant suffixes, cities, utilities, and mobile carriers MUST match the ${province} rules from RULE 3. Do NOT use ON/Ottawa/Nepean/ONCA for any other province.`
     : '';
+  const localArea = localAreaFromDetails(details);
+  const localReminder = localArea
+    ? `LOCAL TRANSACTION REMINDER: Local transaction area is ${localArea}. Use ${localArea}-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service descriptions for debit transactions.`
+    : '';
 
   return `${cleanDetails}
 
@@ -646,6 +682,7 @@ Statement period: ${period.from} to ${period.to}
 Opening balance: $${openingBalance.toFixed(2)}
 Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
 ${provinceReminder}
+${localReminder}
 CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
 Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
 }
@@ -692,11 +729,12 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       const targetTxCount = txCountMatch ? parseInt(txCountMatch[1]) : 50;
       const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
       const province = provinceMatch ? provinceMatch[1].toUpperCase() : 'ON';
+      const localArea = localAreaFromDetails(details);
 
       // Pad transactions server-side if the AI returned fewer than requested
       const inner = parsed[docType] || parsed.statement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
       if (inner.transactions) {
-        inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province);
+        inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
       }
 
       currentBalance = calcClosing(currentBalance, inner.transactions || [], bank);

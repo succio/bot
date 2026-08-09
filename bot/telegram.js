@@ -121,6 +121,29 @@ function provinceFromAddress(address, fallback = 'ON') {
   return match ? match[1] : fallback;
 }
 
+function transactionAreaFromAddress(address) {
+  const upper = String(address || '').toUpperCase();
+  const knownAreas = [
+    'TORONTO', 'CALGARY', 'OTTAWA', 'NEPEAN', 'VANCOUVER', 'BURNABY',
+    'EDMONTON', 'MONTREAL', 'LAVAL', 'WINNIPEG', 'REGINA', 'SASKATOON',
+    'HALIFAX', 'MONCTON', 'FREDERICTON', 'CHARLOTTETOWN', 'ST JOHNS'
+  ];
+  const found = knownAreas.find((area) => upper.includes(area));
+  if (found) return found;
+
+  const match = upper.match(/\b([A-Z][A-Z .'-]+?)\s+(AB|BC|ON|QC|SK|MB|NS|NB|NL|PE)\b/);
+  return match ? match[1].trim().replace(/\s+/g, ' ') : '';
+}
+
+function statementPayrollDescription(employer) {
+  const clean = String(employer || 'EMPLOYER')
+    .toUpperCase()
+    .replace(/[^A-Z0-9& .'-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${clean || 'EMPLOYER'} PAYROLL DEPOSIT`;
+}
+
 function maskSinLast4(last4) {
   const digits = String(last4 || '').replace(/\D/g, '').slice(-4).padStart(4, '0');
   return `XXX XX${digits[0]} ${digits.slice(1)}`;
@@ -458,12 +481,17 @@ bot.on('text', async (ctx) => {
       d.year = parseIsoDate(d.startDate).getFullYear();
       d.month = parseIsoDate(d.startDate).getMonth() + 1;
       sess.step = 'bank_income';
-      return ctx.reply('Biweekly income/deposits:');
+      return ctx.reply('Biweekly income/deposits (e.g 3200):');
     }
     if (sess.step === 'bank_income') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
+      sess.step = 'bank_employer';
+      return ctx.reply('Employer name:');
+    }
+    if (sess.step === 'bank_employer') {
+      d.employer = text;
       return queueGeneration(ctx, sess, `${d.months}-month ${d.bank} statement`, (data) => finalizeBankStatement(ctx, data));
     }
   }
@@ -591,6 +619,10 @@ async function finalizeBankStatement(ctx, d) {
       `Statement end date: ${d.endDate}`,
       `Opening balance: $5000.00`,
       `Biweekly payroll/deposits: $${Number(d.income).toFixed(2)}`,
+      `Employer name: ${d.employer}`,
+      `Payroll deposit description: ${statementPayrollDescription(d.employer)}`,
+      `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,
+      'Transaction description rule: Use local merchant descriptions based on the address provided. Toronto addresses must use Toronto-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions. Calgary addresses must use Calgary-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions.',
       `Province: ${provinceFromAddress(d.address)}`,
       'Number of Transactions: 50'
     ].join('\n');
