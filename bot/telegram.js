@@ -59,7 +59,7 @@ function spendCredit(user, amount = 1) {
 }
 
 function bankId(bankName) {
-  const map = { TD: 'td', Scotiabank: 'scotia', CIBC: 'cibc', RBC: 'rbc' };
+  const map = { TD: 'td', BMO: 'bmo', Scotiabank: 'scotia', CIBC: 'cibc', RBC: 'rbc' };
   return map[bankName] || String(bankName || '').toLowerCase();
 }
 
@@ -220,7 +220,8 @@ function randomT4EmploymentCode() {
   return String(Math.floor(10 + Math.random() * 90));
 }
 
-const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
+const STATEMENT_BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
+const VOID_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
 
 // ─── /start ───────────────────────────────────────────────────────────────────
@@ -392,11 +393,11 @@ bot.on('text', async (ctx) => {
 
     if (d.docType === 'bank') {
       sess.step = 'bank_name';
-      return ctx.reply('Which bank?', Markup.keyboard([...BANKS.map(b => [b]), ['❌ Cancel']]).resize());
+      return ctx.reply('Which bank?', Markup.keyboard([...STATEMENT_BANKS.map(b => [b]), ['❌ Cancel']]).resize());
     }
     if (d.docType === 'void') {
       sess.step = 'void_bank';
-      return ctx.reply('Which bank for the void cheque?', Markup.keyboard([...BANKS.map(b => [b]), ['❌ Cancel']]).resize());
+      return ctx.reply('Which bank for the void cheque?', Markup.keyboard([...VOID_BANKS.map(b => [b]), ['❌ Cancel']]).resize());
     }
     if (d.docType === 'noa') {
       sess.step = 'noa_name';
@@ -411,7 +412,7 @@ bot.on('text', async (ctx) => {
   // ── Bank Statement flow ──
   if (d.docType === 'bank') {
     if (sess.step === 'bank_name') {
-      if (!BANKS.includes(text)) return ctx.reply('Please choose a bank from the menu.');
+      if (!STATEMENT_BANKS.includes(text)) return ctx.reply('Please choose a bank from the menu.');
       d.bank = text;
       sess.step = 'bank_acct_name';
       return ctx.reply('Account holder name:', Markup.keyboard([['❌ Cancel']]).resize());
@@ -537,7 +538,7 @@ bot.on('text', async (ctx) => {
   // ── Void Cheque flow ──
   if (d.docType === 'void') {
     if (sess.step === 'void_bank') {
-      if (!BANKS.includes(text)) return ctx.reply('Please choose a bank from the menu.');
+      if (!VOID_BANKS.includes(text)) return ctx.reply('Please choose a bank from the menu.');
       d.bank = text;
       sess.step = 'void_name';
       return ctx.reply('Account holder name:', Markup.keyboard([['❌ Cancel']]).resize());
@@ -712,6 +713,7 @@ async function finalizeVoid(ctx, d) {
 
   try {
     const bankKey = d.bank === 'TD' ? 'tdVoidCheck'
+      : d.bank === 'BMO' ? 'bmoVoidCheck'
       : d.bank === 'Scotiabank' ? 'scotiaVoidCheck'
       : d.bank === 'CIBC' ? 'cibcVoidCheck'
       : 'rbcVoidCheck';
@@ -728,6 +730,13 @@ async function finalizeVoid(ctx, d) {
           branchAddress: '',
           customerAccountNumber: d.account
         }
+      : bankKey === 'bmoVoidCheck'
+        ? {
+            name: d.name,
+            transit: d.transit,
+            institution: d.institution,
+            account: d.account
+          }
       : bankKey === 'cibcVoidCheck'
         ? {
             name: d.name,
