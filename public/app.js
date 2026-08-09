@@ -2164,7 +2164,7 @@ function renderSimpliiPreview(data) {
       <td class="si-right">${formatMoney(layout.openingBalance)}</td>
     </tr>`;
 
-    const MAX_PAGE1 = 16;
+    const MAX_PAGE1 = 21;
     const MAX_PAGE2 = 5;
     const p1Rows      = layout.renderedRows.slice(0, MAX_PAGE1);
     const p2Rows      = layout.renderedRows.slice(MAX_PAGE1, MAX_PAGE1 + MAX_PAGE2);
