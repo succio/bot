@@ -100,11 +100,15 @@ router.post('/ipn', (req, res) => {
         const tgParts = orderId.split('-');
         const telegramId = tgParts[1];
         const packageId = tgParts[2];
-        const pkg = PACKAGES[packageId];
+        const isCustomTopup = packageId === 'custom';
+        const customAmount = isCustomTopup ? Number(tgParts[3] || 0) / 100 : null;
+        const pkg = isCustomTopup
+          ? { name: `Custom ${formatUsd(customAmount)} Balance Top Up`, price: customAmount, amount: customAmount }
+          : PACKAGES[packageId];
         const key = `tg:${telegramId}`;
         const user = users.get(key);
         console.log(`IPN Telegram: orderId=${orderId}, telegramId=${telegramId}, packageId=${packageId}, userFound=${!!user}, pkgFound=${!!pkg}`);
-        if (user && pkg) {
+        if (user && pkg && Number(pkg.amount || pkg.price || 0) > 0) {
           const addAmount = Number(pkg.amount || pkg.price || 0);
           addUsdBalance(user, addAmount, pkg.name);
           scheduleSave();

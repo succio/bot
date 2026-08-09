@@ -9,6 +9,9 @@ const { PACKAGES, DOCUMENT_PRICES, PRICE_LABELS } = require('../routes/payments-
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 bot.use(session());
 
+const MIN_TOPUP_USD = 35;
+const MAX_TOPUP_USD = 10000;
+
 const generationQueue = new JobQueue({
   concurrency: parseInt(process.env.PDF_CONCURRENCY, 10) || 1,
   name: 'telegram-generation'
@@ -87,6 +90,30 @@ function hasBalance(user, amount) {
 
 function notEnoughBalanceMessage(user, label, amount) {
   return `❌ Not enough balance. ${label} costs *${formatUsd(amount)}*. Your balance is *${formatUsd(getBalance(user))}*.`;
+}
+
+async function createTopupInvoice(ctx, amount, packageId = null, label = null) {
+  const me = await bot.telegram.getMe();
+  const cents = Math.round(Number(amount) * 100);
+  const orderId = packageId
+    ? `tg-${ctx.from.id}-${packageId}-${Date.now()}`
+    : `tg-${ctx.from.id}-custom-${cents}-${Date.now()}`;
+
+  const response = await axios.post(
+    'https://api.nowpayments.io/v1/invoice',
+    {
+      price_amount: amount,
+      price_currency: 'usd',
+      order_id: orderId,
+      order_description: `${label || 'Custom Balance Top Up'} for Telegram user ${ctx.from.id}`,
+      ipn_callback_url: `${process.env.APP_URL}/api/payments/ipn`,
+      success_url: `https://t.me/${me.username}`,
+      cancel_url: `https://t.me/${me.username}`,
+    },
+    { headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY, 'Content-Type': 'application/json' } }
+  );
+
+  return response.data.invoice_url;
 }
 
 function bankId(bankName) {
@@ -347,6 +374,7 @@ bot.hears(['💳 Add Balance', '💳 Buy Credits', '/buy'], async (ctx) => {
         [Markup.button.callback('Add $100 USD', 'buy:balance100')],
         [Markup.button.callback('Add $200 USD', 'buy:balance200')],
         [Markup.button.callback('Add $400 USD', 'buy:balance400')],
+        [Markup.button.callback('Custom amount', 'buy:custom')],
       ])
     }
   );
@@ -355,27 +383,21 @@ bot.hears(['💳 Add Balance', '💳 Buy Credits', '/buy'], async (ctx) => {
 bot.action(/^buy:(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
   const packageId = ctx.match[1];
+  if (packageId === 'custom') {
+    const sess = initSession(ctx);
+    sess.flow = 'topup';
+    sess.step = 'amount';
+    return ctx.reply(
+      `Enter the amount you want to top up in USD (e.g 300)\n\nMinimum amount: ${formatUsd(MIN_TOPUP_USD)}\nMaximum amount: ${formatUsd(MAX_TOPUP_USD)}`,
+      Markup.keyboard([['❌ Cancel']]).resize()
+    );
+  }
+
   const pkg = PACKAGES[packageId];
   if (!pkg) return ctx.reply('Unknown package.');
 
-  const user = getOrCreateTgUser(ctx);
-
   try {
-    const response = await axios.post(
-      'https://api.nowpayments.io/v1/invoice',
-      {
-        price_amount: pkg.price,
-        price_currency: 'usd',
-        order_id: `tg-${ctx.from.id}-${packageId}-${Date.now()}`,
-        order_description: `${pkg.name} for Telegram user ${ctx.from.id}`,
-        ipn_callback_url: `${process.env.APP_URL}/api/payments/ipn`,
-        success_url: 'https://t.me/' + (await bot.telegram.getMe()).username,
-        cancel_url: 'https://t.me/' + (await bot.telegram.getMe()).username,
-      },
-      { headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY, 'Content-Type': 'application/json' } }
-    );
-
-    const invoiceUrl = response.data.invoice_url;
+    const invoiceUrl = await createTopupInvoice(ctx, pkg.price, packageId, pkg.name);
     await ctx.reply(
       `💳 *${pkg.name}* — $${pkg.price} USD\n\n` +
       `Click the link below to pay with crypto. Once confirmed, *${formatUsd(pkg.amount || pkg.price)} USD* will be added to your account automatically.\n\n` +
@@ -424,15 +446,42 @@ bot.hears('❌ Cancel', async (ctx) => {
 // ─── Conversation handler ─────────────────────────────────────────────────────
 bot.on('text', async (ctx) => {
   const sess = initSession(ctx);
-  if (sess.flow !== 'generate') return;
-
   const text = ctx.message.text.trim();
-  const d = sess.data;
 
   if (text === '❌ Cancel') {
     sess.flow = null;
+    sess.step = null;
+    sess.data = {};
     return ctx.reply('Cancelled.', mainMenu());
   }
+
+  if (sess.flow === 'topup') {
+    const amount = parseFloat(text.replace(/[^0-9.]/g, ''));
+    if (isNaN(amount)) return ctx.reply('Please enter a valid USD amount (e.g 300):');
+    if (amount < MIN_TOPUP_USD) return ctx.reply(`Minimum amount is ${formatUsd(MIN_TOPUP_USD)}. Enter a higher amount:`);
+    if (amount > MAX_TOPUP_USD) return ctx.reply(`Maximum amount is ${formatUsd(MAX_TOPUP_USD)}. Enter a lower amount:`);
+
+    sess.flow = null;
+    sess.step = null;
+    sess.data = {};
+
+    try {
+      const invoiceUrl = await createTopupInvoice(ctx, amount, null, `Custom ${formatUsd(amount)} Balance Top Up`);
+      return ctx.reply(
+        `💳 *Custom Top Up* — ${formatUsd(amount)} USD\n\n` +
+        `Click the link below to pay with crypto. Once confirmed, *${formatUsd(amount)} USD* will be added to your account automatically.\n\n` +
+        `🔗 [Pay Now](${invoiceUrl})`,
+        { parse_mode: 'Markdown', ...mainMenu() }
+      );
+    } catch (err) {
+      console.error('Bot custom invoice error:', err.response?.data || err.message);
+      return ctx.reply('⚠️ Could not create payment link. Please try again later.', mainMenu());
+    }
+  }
+
+  if (sess.flow !== 'generate') return;
+
+  const d = sess.data;
 
   // Step: doc type
   if (sess.step === 'doctype') {
