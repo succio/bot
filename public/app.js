@@ -1325,7 +1325,6 @@ function buildPdfFilename(data) {
 }
 
 function getPdfPageSizeMm(format) {
-  if (format === "letter") return { width: 215.9, height: 279.4 };
   return { width: 210, height: 297 };
 }
 
@@ -1404,7 +1403,7 @@ async function saveTwoPagePdf(filename, firstPageId, secondPageId, format = "a4"
 }
 
 async function saveStatementPdf(filename) {
-  return saveTwoPagePdf(filename, "statementPage1", "statementPage2", "letter");
+  return saveTwoPagePdf(filename, "statementPage1", "statementPage2", "a4");
 }
 
 async function downloadPdf() {
@@ -1543,7 +1542,7 @@ async function downloadPdf() {
         },
         jsPDF: {
           unit: "mm",
-          format: "letter",
+          format: "a4",
           orientation: "portrait",
         },
         pagebreak: { mode: ["css", "legacy"] },
@@ -2489,7 +2488,7 @@ function renderScotiaBarcode(canvasEl, seed) {
 }
 
 async function saveScotiaPdf(filename) {
-  return saveTwoPagePdf(filename, "scotiaPage1", "scotiaPage2", "letter");
+  return saveTwoPagePdf(filename, "scotiaPage1", "scotiaPage2", "a4");
 }
 
 function buildCibcPages(cibcData) {
@@ -2623,7 +2622,7 @@ function renderCibcPreview(data) {
 }
 
 async function saveCibcPdf(filename) {
-  return saveTwoPagePdf(filename, "cibcPage1", "cibcPage2", "letter");
+  return saveTwoPagePdf(filename, "cibcPage1", "cibcPage2", "a4");
 }
 
 function buildRbcPages(rbcData) {
@@ -2767,7 +2766,7 @@ function renderRbcPreview(data) {
 }
 
 async function saveRbcPdf(filename) {
-  return saveTwoPagePdf(filename, "rbcPage1", "rbcPage2", "letter");
+  return saveTwoPagePdf(filename, "rbcPage1", "rbcPage2", "a4");
 }
 
 function addNoaRow(tableBody, data = {}) {
@@ -3609,7 +3608,7 @@ async function saveT4Pdf(filename) {
   const data = getCurrentFormData();
   const values = data.t4Slip ?? {};
   const placements = buildT4PlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -3668,7 +3667,7 @@ async function saveT4Pdf(filename) {
       y += lineHeight;
     }
   }
-  pdf.addPage("letter", "portrait");
+  pdf.addPage("a4", "portrait");
   pdf.addImage(bgPage2DataUrl, "JPEG", 0, 0, pageW, pageH);
   pdf.save(filename);
   return { mode: "download" };
@@ -3971,7 +3970,7 @@ async function saveBmoVoidPdf(filename) {
   const data = getCurrentFormData();
   const values = data.bmoVoidCheck ?? {};
   const placements = buildBmoVoidPlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -4034,7 +4033,7 @@ async function saveScotiaVoidPdf(filename) {
   const data = getCurrentFormData();
   const values = data.scotiaVoidCheck ?? {};
   const placements = buildScotiaVoidPlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -4102,7 +4101,7 @@ async function saveRbcVoidPdf(filename) {
   const data = getCurrentFormData();
   const values = data.rbcVoidCheck ?? {};
   const placements = buildRbcVoidPlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -4161,7 +4160,7 @@ async function saveTdVoidPdf(filename) {
   const data = getCurrentFormData();
   const values = data.tdVoidCheck ?? {};
   const placements = buildTdVoidPlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -4226,7 +4225,7 @@ async function saveCibcVoidPdf(filename) {
   const values = data.cibcVoidCheck ?? {};
   const page1Placements = buildCibcVoidPage1PlacementItems(values);
   const page2Placements = buildCibcVoidPage2PlacementItems(values);
-  const pdf = new JsPdfCtor({ unit: "mm", format: "letter", orientation: "portrait" });
+  const pdf = new JsPdfCtor({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
@@ -4284,7 +4283,7 @@ async function saveCibcVoidPdf(filename) {
   };
   pdf.addImage(bgPage1DataUrl, "JPEG", 0, 0, pageW, pageH);
   drawPlacementItems(page1Placements);
-  pdf.addPage("letter", "portrait");
+  pdf.addPage("a4", "portrait");
   pdf.addImage(bgPage2DataUrl, "JPEG", 0, 0, pageW, pageH);
   drawPlacementItems(page2Placements);
   pdf.save(filename);
