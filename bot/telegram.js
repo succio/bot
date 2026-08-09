@@ -206,6 +206,20 @@ function formatNoaAddress(address) {
   ].filter(Boolean).join('\n');
 }
 
+function randomDigits(length) {
+  let value = '';
+  for (let i = 0; i < length; i += 1) value += Math.floor(Math.random() * 10);
+  return value;
+}
+
+function randomT4EmployerAccount() {
+  return `${randomDigits(9)}RP${randomDigits(4)}`;
+}
+
+function randomT4EmploymentCode() {
+  return String(Math.floor(10 + Math.random() * 90));
+}
+
 const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
 
@@ -648,22 +662,29 @@ async function finalizeT4(ctx, d) {
     mainMenu());
 
   try {
+    const employeeName = String(d.name || '').toUpperCase().trim();
+    const employeeAddress = formatNoaAddress(d.address);
+    const employerName = String(d.employer || '').toUpperCase().trim();
     const presetData = {
       documentType: 't4Slip',
       t4Slip: {
         year: d.taxYear,
-        employerAccount: '',
+        employerAccount: randomT4EmployerAccount(),
         sin: d.sin,
-        employerName: d.employer,
-        employeeAddress: `${d.name}\n${d.address}`,
+        employerName,
+        employeeAddress: `${employeeName}\n${employeeAddress}`,
         '10': provinceFromAddress(d.address),
         '14': fmt(d.income),
         '22': fmt(d.income * 0.18),
         '16': fmt(Math.min(d.income * 0.0595, 3867.50)),
         '17': '',
         '18': fmt(Math.min(d.income * 0.0166, 1049.12)),
+        '29': randomT4EmploymentCode(),
         '24': fmt(d.income),
         '26': fmt(d.income),
+        '44': '0.00',
+        '46': '0.00',
+        '52': '0.00',
         '55': '',
         '56': ''
       }
