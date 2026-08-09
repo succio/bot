@@ -32,8 +32,7 @@ function getRenderBaseUrl() {
 
 async function generatePdf(presetData) {
   const appUrl = getRenderBaseUrl();
-  const b64 = Buffer.from(unescape(encodeURIComponent(JSON.stringify(presetData)))).toString('base64');
-  const targetUrl = `${appUrl}/index.html#preset=${b64}`;
+  const targetUrl = `${appUrl}/index.html`;
   const renderToken = getRenderToken();
 
   const browser = await getBrowser();
@@ -64,18 +63,37 @@ async function generatePdf(presetData) {
       window.localStorage.setItem('token', token);
     }, renderToken);
 
-    // Load the document page; the web app's PayrollEngine + renderers run here
+    // Load the app once, then inject the preset directly. This avoids very long hash URLs
+    // and makes repeated Railway renders less dependent on navigation timing.
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    const ready = await page.waitForFunction(() => {
-      const report = document.querySelector(
-        '#paystub:not(.is-hidden), #noaReport:not(.is-hidden), #t4Report:not(.is-hidden), #tdVoidReport:not(.is-hidden), #bmoVoidReport:not(.is-hidden), #scotiaVoidReport:not(.is-hidden), #rbcVoidReport:not(.is-hidden), #cibcVoidReport:not(.is-hidden), #statementReport:not(.is-hidden), #scotiaReport:not(.is-hidden), #cibcReport:not(.is-hidden), #rbcReport:not(.is-hidden)'
-      );
-      if (!report) return false;
+    await page.waitForFunction(() => typeof window._loadPreset === 'function', { timeout: 20000 });
+    await page.evaluate((data) => {
+      window._loadPreset(data);
+    }, presetData);
+
+    const reportSelector = {
+      payroll: '#paystub',
+      noaStatement: '#noaReport',
+      t4Slip: '#t4Report',
+      tdVoidCheck: '#tdVoidReport',
+      bmoVoidCheck: '#bmoVoidReport',
+      scotiaVoidCheck: '#scotiaVoidReport',
+      rbcVoidCheck: '#rbcVoidReport',
+      cibcVoidCheck: '#cibcVoidReport',
+      statement: '#statementReport',
+      scotiaStatement: '#scotiaReport',
+      cibcStatement: '#cibcReport',
+      rbcStatement: '#rbcReport'
+    }[docType] || '#paystub';
+
+    const ready = await page.waitForFunction((selector) => {
+      const report = document.querySelector(selector);
+      if (!report || report.classList.contains('is-hidden')) return false;
       const rect = report.getBoundingClientRect();
       return rect.height > 100 && rect.width > 100;
-    }, { timeout: 15000 }).then(() => true).catch((err) => {
-      console.warn(`PDF preview readiness timed out (${docType}): ${err.message}`);
+    }, { timeout: 10000 }, reportSelector).then(() => true).catch((err) => {
+      console.warn(`PDF preview readiness timed out (${docType}, ${reportSelector}): ${err.message}`);
       return false;
     });
 
@@ -88,7 +106,7 @@ async function generatePdf(presetData) {
 
     // Strip all UI chrome and expose only the document preview at full width.
     // The web app's calculations have already run; we just need a clean capture.
-    await page.evaluate(() => {
+    await page.evaluate((type) => {
       const s = (sel, styles) => document.querySelectorAll(sel).forEach(el => Object.assign(el.style, styles));
       const hide = sel => s(sel, { display: 'none' });
 
@@ -114,7 +132,46 @@ async function generatePdf(presetData) {
       document.body.style.cssText = 'margin:0;padding:0;background:#fff;';
       const app = document.querySelector('.app-layout, .app, #app, main');
       if (app) Object.assign(app.style, { display: 'block', width: '100%' });
-    });
+
+      if (type === 'payroll') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: A4; margin: 0; }
+          html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          #paystub { width: 210mm !important; max-width: none !important; margin: 0 !important; border: 0 !important; background: #fff !important; }
+          #paystub .statement { width: 210mm !important; min-height: 297mm !important; padding: 13mm 12mm 10mm !important; background-size: auto 4.4mm !important; overflow: hidden !important; }
+          #paystub .statement-header { gap: 7mm !important; }
+          #paystub .brand { font-size: 10mm !important; line-height: 1 !important; }
+          #paystub .statement-meta h2 { font-size: 6.6mm !important; margin-bottom: 2.6mm !important; }
+          #paystub .statement-meta p { margin: 0.35mm 0 !important; }
+          #paystub .statement-meta address { margin-top: 4mm !important; line-height: 1.18 !important; }
+          #paystub .statement-grid { display: block !important; margin-top: 9mm !important; }
+          #paystub .slip-block h3 { font-size: 5mm !important; margin: 4.5mm 0 1.6mm !important; }
+          #paystub .slip-table { font-size: 3.6mm !important; line-height: 1.05 !important; }
+          #paystub .slip-table th, #paystub .slip-table td { padding: 1.15mm 1mm !important; }
+          #paystub .notes { margin-top: 5mm !important; line-height: 1.18 !important; font-size: 3.6mm !important; }
+          #paystub .hours-block { margin-top: 4.8mm !important; padding: 1.5mm 0 !important; }
+          #paystub .hours-block p, #paystub .deposit-box p { margin: 1.3mm 0 !important; }
+          #paystub .deposit-box { padding-bottom: 1.5mm !important; }
+          #paystub .statement-footer { margin-top: 6mm !important; }
+          #paystub .strong-line { padding: 1.7mm 0 !important; font-size: 4.9mm !important; break-inside: avoid !important; page-break-inside: avoid !important; }
+        `;
+        document.head.appendChild(style);
+      }
+
+      if (type === 'noaStatement') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: A4; margin: 0; }
+          html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          #noaReport { width: 210mm !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+          #noaReport .noa-page { width: 210mm !important; height: 297mm !important; margin: 0 !important; break-after: page; page-break-after: always; overflow: hidden !important; box-shadow: none !important; border: 0 !important; }
+          #noaReport .noa-page + .noa-page { margin-top: 0 !important; }
+          #noaReport .noa-page:last-child { break-after: auto; page-break-after: auto; }
+        `;
+        document.head.appendChild(style);
+      }
+    }, docType);
 
     const visibleReport = await page.evaluate(() => {
       const report = document.querySelector(
@@ -128,11 +185,14 @@ async function generatePdf(presetData) {
       throw new Error(`Document preview did not render for ${docType}`);
     }
 
-    const pdfData = await page.pdf({
-      format: 'Letter',
+    const pdfOptions = {
+      format: 'A4',
       printBackground: true,
-      margin: { top: '0.4in', bottom: '0.4in', left: '0.4in', right: '0.4in' }
-    });
+      preferCSSPageSize: true,
+      margin: { top: '0', bottom: '0', left: '0', right: '0' }
+    };
+
+    const pdfData = await page.pdf(pdfOptions);
 
     const pdfBuf = Buffer.from(pdfData);
     if (pdfBuf.length < 2000) throw new Error(`PDF too small: ${pdfBuf.length} bytes — page did not render`);
