@@ -96,9 +96,44 @@ function queueGeneration(ctx, sess, jobName, worker) {
     });
 }
 
+function parseIsoDate(text) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const date = new Date(`${text}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function addDays(dateText, days) {
+  const date = parseIsoDate(dateText);
+  if (!date) return dateText;
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
+function monthsInclusive(startDateText, endDateText) {
+  const start = parseIsoDate(startDateText);
+  const end = parseIsoDate(endDateText);
+  if (!start || !end || end < start) return null;
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+}
+
+function provinceFromAddress(address, fallback = 'ON') {
+  const match = String(address || '').toUpperCase().match(/\b(AB|BC|ON|QC|SK|MB|NS|NB|NL|PE)\b/);
+  return match ? match[1] : fallback;
+}
+
+function maskSinLast4(last4) {
+  const digits = String(last4 || '').replace(/\D/g, '').slice(-4).padStart(4, '0');
+  return `XXX XX${digits[0]} ${digits.slice(1)}`;
+}
+
+function normalizeSin(text) {
+  const digits = String(text || '').replace(/\D/g, '');
+  if (digits.length === 9) return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  return String(text || '').trim();
+}
+
 const BANKS = ['TD', 'Scotiabank', 'CIBC', 'RBC'];
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
-const MONTHS_MAP = { '1 Month ($35)': 1, '3 Months ($100)': 3, '6 Months ($200)': 6 };
 
 // ─── /start ───────────────────────────────────────────────────────────────────
 bot.start(async (ctx) => {
@@ -277,11 +312,11 @@ bot.on('text', async (ctx) => {
     }
     if (d.docType === 'noa') {
       sess.step = 'noa_name';
-      return ctx.reply('Full name on the NOA:', Markup.keyboard([['❌ Cancel']]).resize());
+      return ctx.reply('Holder name:', Markup.keyboard([['❌ Cancel']]).resize());
     }
     if (d.docType === 't4') {
       sess.step = 't4_name';
-      return ctx.reply('Employee full name:', Markup.keyboard([['❌ Cancel']]).resize());
+      return ctx.reply('Employee name:', Markup.keyboard([['❌ Cancel']]).resize());
     }
   }
 
@@ -290,62 +325,66 @@ bot.on('text', async (ctx) => {
     if (sess.step === 'bank_name') {
       if (!BANKS.includes(text)) return ctx.reply('Please choose a bank from the menu.');
       d.bank = text;
-      sess.step = 'bank_months';
-      return ctx.reply('How many months?', Markup.keyboard([
-        ['1 Month ($35)', '3 Months ($100)'],
-        ['6 Months ($200)'],
-        ['❌ Cancel']
-      ]).resize());
-    }
-    if (sess.step === 'bank_months') {
-      if (!MONTHS_MAP[text]) return ctx.reply('Please choose a valid option.');
-      d.months = MONTHS_MAP[text];
       sess.step = 'bank_acct_name';
       return ctx.reply('Account holder name:', Markup.keyboard([['❌ Cancel']]).resize());
     }
     if (sess.step === 'bank_acct_name') {
       d.acctName = text;
+      sess.step = 'bank_address';
+      return ctx.reply('Account holder address:');
+    }
+    if (sess.step === 'bank_address') {
+      d.address = text;
       sess.step = 'bank_acct_number';
-      return ctx.reply('Account number (last 4 digits shown, e.g. ****1234):');
+      return ctx.reply('Account no:');
     }
     if (sess.step === 'bank_acct_number') {
       d.acctNumber = text;
-      sess.step = 'bank_balance';
-      return ctx.reply('Starting balance (e.g. 4500.00):');
+      sess.step = 'bank_branch_number';
+      return ctx.reply('Branch no:');
     }
-    if (sess.step === 'bank_balance') {
-      const val = parseFloat(text.replace(/[^0-9.]/g, ''));
-      if (isNaN(val)) return ctx.reply('Please enter a valid number (e.g. 4500.00):');
-      d.balance = val;
+    if (sess.step === 'bank_branch_number') {
+      d.branchNumber = text;
+      sess.step = 'bank_start_date';
+      return ctx.reply('Start Date (YYYY-MM-DD):');
+    }
+    if (sess.step === 'bank_start_date') {
+      if (!parseIsoDate(text)) return ctx.reply('Please use YYYY-MM-DD format (e.g. 2025-01-01):');
+      d.startDate = text;
+      sess.step = 'bank_end_date';
+      return ctx.reply('End Date (YYYY-MM-DD):');
+    }
+    if (sess.step === 'bank_end_date') {
+      if (!parseIsoDate(text)) return ctx.reply('Please use YYYY-MM-DD format (e.g. 2025-01-31):');
+      const months = monthsInclusive(d.startDate, text);
+      if (!months) return ctx.reply('End Date must be after Start Date.');
+      if (months > 6) return ctx.reply('Please keep statement packages to 6 months or less.');
+      d.endDate = text;
+      d.months = months;
+      d.year = parseIsoDate(d.startDate).getFullYear();
+      d.month = parseIsoDate(d.startDate).getMonth() + 1;
       sess.step = 'bank_income';
-      return ctx.reply('Monthly income/deposits (e.g. 3200.00):');
+      return ctx.reply('Biweekly income/deposits:');
     }
     if (sess.step === 'bank_income') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
-      sess.step = 'bank_year';
-      return ctx.reply('Starting year (e.g. 2024):');
-    }
-    if (sess.step === 'bank_year') {
-      const yr = parseInt(text);
-      if (isNaN(yr) || yr < 2000 || yr > 2030) return ctx.reply('Please enter a valid year (e.g. 2024):');
-      d.year = yr;
-      sess.step = 'bank_month';
-      return ctx.reply('Starting month number (1–12):');
-    }
-    if (sess.step === 'bank_month') {
-      const mo = parseInt(text);
-      if (isNaN(mo) || mo < 1 || mo > 12) return ctx.reply('Please enter a month number between 1 and 12:');
-      d.month = mo;
       return queueGeneration(ctx, sess, `${d.months}-month ${d.bank} statement`, (data) => finalizeBankStatement(ctx, data));
     }
   }
 
   // ── NOA flow ──
   if (d.docType === 'noa') {
-    if (sess.step === 'noa_name') { d.name = text; sess.step = 'noa_sin'; return ctx.reply('SIN (e.g. XXX XX0 000):'); }
-    if (sess.step === 'noa_sin') { d.sin = text; sess.step = 'noa_year'; return ctx.reply('Tax year (e.g. 2024):'); }
+    if (sess.step === 'noa_name') { d.name = text; sess.step = 'noa_address'; return ctx.reply('Holder address:'); }
+    if (sess.step === 'noa_address') { d.address = text; sess.step = 'noa_sin'; return ctx.reply('LAST 4 SIN (e.g. 1234):'); }
+    if (sess.step === 'noa_sin') {
+      const last4 = text.replace(/\D/g, '');
+      if (last4.length !== 4) return ctx.reply('Please enter exactly 4 digits.');
+      d.sin = maskSinLast4(last4);
+      sess.step = 'noa_year';
+      return ctx.reply('Tax year (e.g. 2024):');
+    }
     if (sess.step === 'noa_year') { d.taxYear = text; sess.step = 'noa_income'; return ctx.reply('Annual income (e.g. 85000):'); }
     if (sess.step === 'noa_income') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
@@ -372,8 +411,9 @@ bot.on('text', async (ctx) => {
 
   // ── T4 flow ──
   if (d.docType === 't4') {
-    if (sess.step === 't4_name') { d.name = text; sess.step = 't4_sin'; return ctx.reply('SIN (e.g. XXX XX0 000):'); }
-    if (sess.step === 't4_sin') { d.sin = text; sess.step = 't4_year'; return ctx.reply('Tax year (e.g. 2024):'); }
+    if (sess.step === 't4_name') { d.name = text; sess.step = 't4_address'; return ctx.reply('Employee address:'); }
+    if (sess.step === 't4_address') { d.address = text; sess.step = 't4_sin'; return ctx.reply('SIN (e.g. XXX XXX XXX):'); }
+    if (sess.step === 't4_sin') { d.sin = normalizeSin(text); sess.step = 't4_year'; return ctx.reply('Tax year (e.g. 2024):'); }
     if (sess.step === 't4_year') { d.taxYear = text; sess.step = 't4_employer'; return ctx.reply('Employer name:'); }
     if (sess.step === 't4_employer') { d.employer = text; sess.step = 't4_income'; return ctx.reply('Employment income (box 14, e.g. 72000):'); }
     if (sess.step === 't4_income') {
@@ -394,17 +434,16 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val) || val <= 0) return ctx.reply('Please enter a valid number (e.g. 72000):');
       d.income = val;
-      sess.step = 'paystub_province';
-      return ctx.reply('Province (choose one):', Markup.keyboard([
-        ['ON', 'BC', 'AB'],
-        ['QC', 'SK', 'MB'],
-        ['NS', 'NB', 'NL'],
+      sess.step = 'paystub_frequency';
+      return ctx.reply('Monthly or Biweekly Paystub?', Markup.keyboard([
+        ['Monthly', 'Biweekly'],
         ['❌ Cancel']
       ]).resize());
     }
-    if (sess.step === 'paystub_province') {
-      if (!PROVINCES.includes(text)) return ctx.reply('Please choose a province from the menu.');
-      d.province = text;
+    if (sess.step === 'paystub_frequency') {
+      if (!['Monthly', 'Biweekly'].includes(text)) return ctx.reply('Please choose Monthly or Biweekly.');
+      d.frequency = text.toLowerCase();
+      d.province = provinceFromAddress(d.address);
       sess.step = 'paystub_paydate';
       return ctx.reply('Pay date (YYYY-MM-DD, e.g. 2025-01-31):', Markup.keyboard([['❌ Cancel']]).resize());
     }
@@ -446,13 +485,18 @@ async function finalizeBankStatement(ctx, d) {
     mainMenu());
 
   try {
-    const appUrl = process.env.APP_URL || 'http://localhost:5000';
+    const port = parseInt(process.env.PORT, 10) || 5000;
+    const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
     const details = [
       `Account holder: ${d.acctName}`,
+      `Address: ${d.address}`,
       `Account number: ${d.acctNumber}`,
-      `Opening balance: $${Number(d.balance).toFixed(2)}`,
-      `Monthly payroll/deposits: $${Number(d.income).toFixed(2)}`,
-      'Province: ON',
+      `Branch no: ${d.branchNumber}`,
+      `Statement start date: ${d.startDate}`,
+      `Statement end date: ${d.endDate}`,
+      `Opening balance: $5000.00`,
+      `Biweekly payroll/deposits: $${Number(d.income).toFixed(2)}`,
+      `Province: ${provinceFromAddress(d.address)}`,
       'Number of Transactions: 50'
     ].join('\n');
     const resp = await axios.post(`${appUrl}/api/generate/bank-package`, {
@@ -498,6 +542,8 @@ async function finalizeNOA(ctx, d) {
       documentType: 'noaStatement',
       noaStatement: {
         name: d.name,
+        address: d.address,
+        location: d.address.split(',').slice(-1)[0]?.trim() || '',
         sin: d.sin,
         taxYear: d.taxYear,
         annualIncome: d.income,
@@ -506,13 +552,17 @@ async function finalizeNOA(ctx, d) {
         balanceOverrideCrdr: d.crdr,
         commissioner: 'Bob Hamilton',
         dateIssued: new Date().toLocaleDateString('en-CA', { month: 'short', day: '2-digit', year: 'numeric' }),
-        address: '',
-        location: '',
         refNumber: Math.floor(Math.random() * 9000000 + 1000000).toString(),
         refCode: Math.random().toString(36).slice(2, 10).toUpperCase(),
         accountNumber: '000000000',
         explanation: `Based on our assessment of your ${d.taxYear} income tax return, you have a ${d.crdr === 'DR' ? 'balance owing' : 'refund'} of $${fmt(d.balance)}.`,
-        summaryRows: []
+        summaryRows: [
+          { line: '15000', description: 'Total income', amount: d.income, crdr: '' },
+          { line: '43500', description: 'Total payable', amount: d.crdr === 'DR' ? d.balance : 0, crdr: '' },
+          { line: '48200', description: 'Total credits', amount: d.crdr === 'CR' ? d.balance : 0, crdr: '' },
+          { line: '', description: 'Balance from this assessment', amount: d.balance, crdr: d.crdr },
+          { line: '', description: 'Direct deposit', amount: d.crdr === 'CR' ? d.balance : 0, crdr: d.crdr === 'CR' ? 'CR' : '' }
+        ]
       }
     };
 
@@ -544,8 +594,8 @@ async function finalizeT4(ctx, d) {
         employerAccount: '',
         sin: d.sin,
         employerName: d.employer,
-        employeeAddress: d.name,
-        '10': 'ON',
+        employeeAddress: `${d.name}\n${d.address}`,
+        '10': provinceFromAddress(d.address),
         '14': fmt(d.income),
         '22': fmt(d.income * 0.18),
         '16': fmt(Math.min(d.income * 0.0595, 3867.50)),
@@ -637,14 +687,12 @@ async function finalizePaystub(ctx, d) {
     mainMenu());
 
   try {
-    const monthlyGross = d.income / 12;
-    const hours = 160; // standard monthly hours
-    const hourlyRate = parseFloat((monthlyGross / hours).toFixed(4));
+    const frequency = d.frequency === 'biweekly' ? 'biweekly' : 'monthly';
+    const periodGross = frequency === 'biweekly' ? d.income / 26 : d.income / 12;
+    const hours = frequency === 'biweekly' ? 80 : 160;
+    const hourlyRate = parseFloat((periodGross / hours).toFixed(4));
 
-    // Period-end is last day of pay-date month
-    const pd = new Date(d.payDate);
-    const periodEnd = new Date(pd.getFullYear(), pd.getMonth() + 1, 0);
-    const periodEndStr = periodEnd.toISOString().split('T')[0];
+    const periodEndStr = addDays(d.payDate, -5);
 
     const presetData = {
       documentType: 'payroll',
@@ -656,7 +704,7 @@ async function finalizePaystub(ctx, d) {
       periodEnding: periodEndStr,
       payDate: d.payDate,
       province: d.province,
-      frequency: 'monthly',
+      frequency,
       employeeName: d.name.toUpperCase(),
       employeeId: '',
       employeeAddress: d.address,
