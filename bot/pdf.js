@@ -121,7 +121,6 @@ async function generatePdf(presetData) {
 
 module.exports = { generatePdf };
     // Settle — fonts, images, JS layout
-    await new Promise(r => setTimeout(r, 2500));
 
     // Strip all UI chrome and expose only the document preview at full width.
     // The web app's calculations have already run; we just need a clean capture.
