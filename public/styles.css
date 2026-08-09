@@ -168,13 +168,13 @@ h3 {
 }
 
 .form-group-toggle::after {
-  content: "▾";
+  content: "â–¾";
   color: #60748f;
   font-size: 0.85rem;
 }
 
 .form-group.is-collapsed .form-group-toggle::after {
-  content: "▸";
+  content: "â–¸";
 }
 
 .form-group-body {
@@ -1166,15 +1166,16 @@ button:hover {
 }
 
 .employment-letter {
-  width: min(100%, 930px);
+  width: min(100%, 210mm);
   margin: 0 auto;
   border: 1px solid var(--line);
   background: #fff;
 }
 
 .letter-page {
-  min-height: 10.35in;
-  padding: 1.05in 0.7in 0.35in;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 25mm 17mm 9mm;
   background: #ffffff;
   font-family: "Helvetica Neue", "Arial", sans-serif;
   color: #1b2330;
@@ -1581,7 +1582,7 @@ button:hover {
 }
 
 .cr-score-marker::after {
-  content: "▼";
+  content: "â–¼";
   display: block;
   font-size: 2.25mm;
   line-height: 1;
@@ -2073,15 +2074,15 @@ button:hover {
 }
 
 .statement-report {
-  width: min(100%, 215.9mm);
+  width: min(100%, 210mm);
   margin: 0 auto;
   background: #fff;
   border: 1px solid #dfe3e8;
 }
 
 .statement-page {
-  width: 215.9mm;
-  height: 279.4mm;
+  width: 210mm;
+  height: 297mm;
   padding: 10.5mm 9.6mm 8.5mm;
   position: relative;
   margin: 0 auto;
@@ -2435,11 +2436,16 @@ button:hover {
   .statement-page {
     width: 100%;
     height: auto;
-    aspect-ratio: 215.9 / 279.4;
+    aspect-ratio: 210 / 297;
   }
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
   body {
     background: #fff;
   }
@@ -2465,12 +2471,99 @@ button:hover {
   }
 
   .paystub {
-    width: 100%;
+    width: 210mm;
+    max-width: none;
     border: 0;
   }
 
+  .paystub .cheque-section {
+    display: none !important;
+  }
+
+  .paystub .statement {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 13mm 12mm 10mm;
+    background-size: auto 4.4mm;
+    overflow: hidden;
+  }
+
+  .paystub .statement-grid {
+    display: block;
+    margin-top: 9mm;
+  }
+
+  .paystub .statement-header {
+    gap: 7mm;
+  }
+
+  .paystub .brand {
+    font-size: 10mm;
+    line-height: 1;
+  }
+
+  .paystub .statement-meta h2 {
+    font-size: 6.6mm;
+    margin-bottom: 2.6mm;
+  }
+
+  .paystub .statement-meta p {
+    margin: 0.35mm 0;
+  }
+
+  .paystub .statement-meta address {
+    margin-top: 4mm;
+    line-height: 1.18;
+  }
+
+  .paystub .slip-block h3 {
+    font-size: 5mm;
+    margin: 4.5mm 0 1.6mm;
+  }
+
+  .paystub .slip-table {
+    font-size: 3.6mm;
+    line-height: 1.05;
+  }
+
+  .paystub .slip-table th,
+  .paystub .slip-table td {
+    padding: 1.15mm 1mm;
+  }
+
+  .paystub .notes {
+    margin-top: 5mm;
+    line-height: 1.18;
+    font-size: 3.6mm;
+  }
+
+  .paystub .hours-block {
+    margin-top: 4.8mm;
+    padding: 1.5mm 0;
+  }
+
+  .paystub .hours-block p,
+  .paystub .deposit-box p {
+    margin: 1.3mm 0;
+  }
+
+  .paystub .deposit-box {
+    padding-bottom: 1.5mm;
+  }
+
+  .paystub .statement-footer {
+    margin-top: 6mm;
+  }
+
+  .paystub .strong-line {
+    padding: 1.7mm 0;
+    font-size: 4.9mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .employment-letter {
-    width: 100%;
+    width: 210mm;
     border: 0;
   }
 
@@ -2487,34 +2580,48 @@ button:hover {
   .noa-report {
     width: 210mm;
     border: 0;
+    background: #fff;
+  }
+
+  .noa-page {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .noa-page + .noa-page {
+    margin-top: 0;
+    break-before: page;
+    page-break-before: always;
   }
 
   .statement-report {
-    width: 215.9mm;
+    width: 210mm;
     border: 0;
   }
 
   .scotia-report {
-    width: 100%;
+    width: 210mm;
   }
 
   .scotia-page {
-    width: 100%;
+    width: 210mm;
     height: auto;
-    aspect-ratio: 215.9 / 279.4;
+    aspect-ratio: 210 / 297;
   }
 
 }
 
 .scotia-report {
-  width: min(100%, 8.5in);
+  width: min(100%, 210mm);
   margin: 0 auto;
   background: #fff;
 }
 
 .scotia-page {
-  width: 8.5in;
-  min-height: 11in;
+  width: 210mm;
+  min-height: 297mm;
   padding: 0.5in 0.6in 0.5in 0.75in;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
@@ -2750,15 +2857,15 @@ button:hover {
 }
 
 .cibc-report {
-  width: min(100%, 8.5in);
+  width: min(100%, 210mm);
   background: #fff;
   border: 1px solid #ddd;
   margin: 0 auto;
 }
 
 .cibc-page {
-  width: 8.5in;
-  min-height: 11in;
+  width: 210mm;
+  min-height: 297mm;
   padding: 0.6in 0.75in;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
@@ -3002,14 +3109,14 @@ button:hover {
 }
 
 .rbc-report {
-  width: min(100%, 8.5in);
+  width: min(100%, 210mm);
   margin: 0 auto;
   background: #fff;
 }
 
 .rbc-page {
-  width: 8.5in;
-  min-height: 11in;
+  width: 210mm;
+  min-height: 297mm;
   padding: 0.5in 0.6in;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
@@ -3321,8 +3428,8 @@ button:hover {
 
 .t4-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 1700 / 2200;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
@@ -3379,7 +3486,7 @@ button:hover {
   .cibc-void-page {
     width: 100%;
     height: auto;
-    aspect-ratio: 215.9 / 279.4;
+    aspect-ratio: 210 / 297;
   }
 }
 
@@ -3394,10 +3501,15 @@ button:hover {
   }
 
   .t4-report {
-    width: 215.9mm;
+    width: 210mm;
     border: 0;
     padding: 0;
     background: #fff;
+  }
+
+  .t4-page + .t4-page {
+    break-before: page;
+    page-break-before: always;
   }
 
   .bmo-void-report,
@@ -3405,7 +3517,7 @@ button:hover {
   .rbc-void-report,
   .td-void-report,
   .cibc-void-report {
-    width: 215.9mm;
+    width: 210mm;
     border: 0;
     padding: 0;
     background: #fff;
@@ -3417,8 +3529,8 @@ button:hover {
   .rbc-void-page,
   .td-void-page,
   .cibc-void-page {
-    width: 215.9mm;
-    height: 279.4mm;
+    width: 210mm;
+    height: 297mm;
     box-shadow: none;
   }
 }
@@ -3439,8 +3551,8 @@ button:hover {
 
 .bmo-void-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 2550 / 3300;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
@@ -3448,8 +3560,8 @@ button:hover {
 
 .scotia-void-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 2479 / 3508;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
@@ -3457,8 +3569,8 @@ button:hover {
 
 .rbc-void-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 2595 / 3407;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
@@ -3466,8 +3578,8 @@ button:hover {
 
 .td-void-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 2550 / 3300;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
@@ -3475,8 +3587,8 @@ button:hover {
 
 .cibc-void-page {
   position: relative;
-  width: min(100%, 8.5in);
-  aspect-ratio: 2550 / 3300;
+  width: min(100%, 210mm);
+  aspect-ratio: 210 / 297;
   background: #fff;
   box-shadow: 0 12px 30px rgba(10, 20, 40, 0.16);
   overflow: hidden;
