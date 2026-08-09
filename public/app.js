@@ -2666,14 +2666,14 @@ async function saveCibcPdf(filename) {
 
 function buildRbcPages(rbcData) {
   const openingBalance = toNumber(rbcData.openingBalance);
-  const transactions = (rbcData.transactions ?? []).map((row) => ({
+  const transactions = (rbcData.transactions ?? []).slice(0, 40).map((row) => ({
     date: safeText(row?.date),
     description: safeText(row?.description),
     withdrawn: Math.max(0, toNumber(row?.withdrawn)),
     deposited: Math.max(0, toNumber(row?.deposited)),
   }));
 
-  const rowsPerPage = 16;
+  const rowsPerPage = 26;
   const page1Transactions = transactions.slice(0, rowsPerPage);
   const page2Transactions = transactions.slice(rowsPerPage);
 

@@ -604,6 +604,7 @@ function requestedTransactionCount(bank, details) {
   const match = String(details || '').match(/Number of Transactions:\s*(\d+)/i);
   const count = match ? parseInt(match[1], 10) : 50;
   if (bank === 'scotia') return Math.min(count, 34);
+  if (bank === 'rbc') return Math.min(count, 40);
   return bank === 'cibc' ? Math.min(count, 30) : count;
 }
 
