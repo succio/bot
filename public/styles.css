@@ -2597,12 +2597,24 @@ button:hover {
 
   .scotia-report {
     width: 210mm;
+    border: 0;
+    margin: 0;
+    padding: 0;
   }
 
   .scotia-page {
     width: 210mm;
-    height: auto;
-    aspect-ratio: 210 / 297;
+    height: 297mm;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .scotia-page + .scotia-page {
+    margin-top: 0;
+    break-before: auto;
+    page-break-before: auto;
   }
 
 }
@@ -2615,7 +2627,7 @@ button:hover {
 
 .scotia-page {
   width: 210mm;
-  min-height: 297mm;
+  height: 297mm;
   padding: 0.5in 0.6in 0.5in 0.75in;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
@@ -2623,6 +2635,14 @@ button:hover {
   color: #000;
   position: relative;
   box-sizing: border-box;
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+}
+
+.scotia-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
 }
 
 .scotia-header {
@@ -2757,6 +2777,7 @@ button:hover {
 
 .scotia-ledger {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 8.5pt;
 }
@@ -2782,18 +2803,19 @@ button:hover {
 }
 
 .scotia-ledger td:first-child {
-  width: 60px;
+  width: 0.65in;
 }
 
 .scotia-ledger td:nth-child(2) {
-  width: 40%;
+  width: 42%;
 }
 
 .scotia-ledger td:nth-child(3),
 .scotia-ledger td:nth-child(4),
 .scotia-ledger td:nth-child(5) {
   text-align: right;
-  width: 18%;
+  width: 16%;
+  white-space: nowrap;
 }
 
 .scotia-ledger td.sc-desc .sc-desc-type {
@@ -2840,8 +2862,8 @@ button:hover {
 }
 
 .scotia-page-break {
-  break-before: page;
-  page-break-before: always;
+  break-before: auto;
+  page-break-before: auto;
 }
 
 .scotia-page2-info {

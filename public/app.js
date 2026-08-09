@@ -2319,7 +2319,7 @@ function renderStatementRows(target, rows) {
 
 function buildScotiaPages(scotiaData) {
   const openingBalance = toNumber(scotiaData.openingBalance);
-  const transactions = (scotiaData.transactions ?? []).map((row) => ({
+  const transactions = (scotiaData.transactions ?? []).slice(0, 36).map((row) => ({
     date: safeText(row?.date),
     description: safeText(row?.description),
     detail: safeText(row?.detail),

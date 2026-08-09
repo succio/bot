@@ -610,7 +610,8 @@ async function finalizeBankStatement(ctx, d) {
   try {
     const port = parseInt(process.env.PORT, 10) || 5000;
     const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
-    const txCount = bankId(d.bank) === 'cibc' ? 30 : 50;
+    const bank = bankId(d.bank);
+    const txCount = bank === 'cibc' ? 30 : bank === 'scotia' ? 36 : 50;
     const details = [
       `Account holder: ${d.acctName}`,
       `Address: ${d.address}`,
