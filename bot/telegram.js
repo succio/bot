@@ -1,6 +1,7 @@
 const { Telegraf, Markup, session } = require('telegraf');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 const { users, scheduleSave } = require('../lib/store');
 const { JobQueue } = require('../lib/jobQueue');
 const { generatePdf } = require('./pdf');
@@ -168,7 +169,8 @@ function bankStatementDocType(bankName) {
 function mainMenu() {
   return Markup.keyboard([
     ['📄 Generate Document', '💳 Add Balance'],
-    ['👤 My Account', '❓ Help']
+    ['📂 Samples', '👤 My Account'],
+    ['❓ Help']
   ]).resize();
 }
 
@@ -348,6 +350,125 @@ const PAYSTUB_STYLES = {
   'Style 3: prairie-sand': 'prairie-sand',
 };
 const PROVINCES = ['AB', 'BC', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'NL', 'PE'];
+const SAMPLES = {
+  bmoStatement: {
+    label: 'BMO Statement',
+    category: 'bank',
+    filename: 'BMO_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'bmo-statement.pdf')
+  },
+  cibcStatement: {
+    label: 'CIBC Statement',
+    category: 'bank',
+    filename: 'CIBC_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'cibc-statement.pdf')
+  },
+  rbcStatement: {
+    label: 'RBC Statement',
+    category: 'bank',
+    filename: 'RBC_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'rbc-statement.pdf')
+  },
+  scotiaStatement: {
+    label: 'Scotia Statement',
+    category: 'bank',
+    filename: 'Scotia_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'scotia-statement.pdf')
+  },
+  simpliiStatement: {
+    label: 'Simplii Statement',
+    category: 'bank',
+    filename: 'Simplii_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'simplii-statement.pdf')
+  },
+  tdStatement: {
+    label: 'TD Statement',
+    category: 'bank',
+    filename: 'TD_Statement_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'td-statement.pdf')
+  },
+  bmoVoidCheque: {
+    label: 'BMO Void Cheque',
+    category: 'void',
+    filename: 'BMO_VoidCheque_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'bmo-void-cheque.pdf')
+  },
+  cibcVoidCheque: {
+    label: 'CIBC Void Cheque',
+    category: 'void',
+    filename: 'CIBC_VoidCheque_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'cibc-void-cheque.pdf')
+  },
+  scotiaVoidCheque: {
+    label: 'Scotia Void Cheque',
+    category: 'void',
+    filename: 'Scotia_VoidCheque_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'scotia-void-cheque.pdf')
+  },
+  tdVoidCheque: {
+    label: 'TD Void Cheque',
+    category: 'void',
+    filename: 'TD_VoidCheque_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'td-void-cheque.pdf')
+  },
+  noa2025: {
+    label: 'NOA 2025',
+    category: 'noa',
+    filename: 'NOA_2025_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'noa-2025.pdf')
+  },
+  paystubStyle1: {
+    label: 'Paystub Style 1',
+    category: 'paystub',
+    filename: 'Paystub_Style_1_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'paystub-style-1.pdf')
+  },
+  paystubStyle2: {
+    label: 'Paystub Style 2',
+    category: 'paystub',
+    filename: 'Paystub_Style_2_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'paystub-style-2.pdf')
+  },
+  paystubStyle3: {
+    label: 'Paystub Style 3',
+    category: 'paystub',
+    filename: 'Paystub_Style_3_Sample.pdf',
+    path: path.join(__dirname, 'samples', 'paystub-style-3.pdf')
+  },
+  t42025: {
+    label: 'T4 2025',
+    category: 't4',
+    filename: 'T4_2025_Sample.pdf',
+    path: path.join(__dirname, 'samples', 't4-2025.pdf')
+  }
+};
+
+const SAMPLE_CATEGORIES = {
+  bank: { label: 'Bank Statement', icon: '🏦' },
+  paystub: { label: 'Paystub', icon: '💼' },
+  t4: { label: 'T4 Slip', icon: '📑' },
+  noa: { label: 'NOA', icon: '📋' },
+  void: { label: 'Void Cheque', icon: '🔲' }
+};
+
+function sampleCategoryKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('🏦 Bank Statement', 'samplecat:bank')],
+    [Markup.button.callback('💼 Paystub', 'samplecat:paystub')],
+    [Markup.button.callback('📑 T4 Slip', 'samplecat:t4')],
+    [Markup.button.callback('📋 NOA', 'samplecat:noa')],
+    [Markup.button.callback('🔲 Void Cheque', 'samplecat:void')]
+  ]);
+}
+
+function samplesKeyboard(category) {
+  const rows = Object.entries(SAMPLES)
+    .filter(([, sample]) => sample.category === category)
+    .map(([key, sample]) => [Markup.button.callback(sample.label, `sample:${key}`)]);
+
+  rows.push([Markup.button.callback('Back to sample types', 'samplecat:root')]);
+  return Markup.inlineKeyboard(rows);
+}
 
 // ─── /start ───────────────────────────────────────────────────────────────────
 bot.start(async (ctx) => {
@@ -376,6 +497,51 @@ bot.hears(['👤 My Account', '/account'], async (ctx) => {
     `🧾 Last Purchase: ${user.lastPurchase || 'None'}`,
     { parse_mode: 'Markdown' }
   );
+});
+
+// ─── Samples ─────────────────────────────────────────────────────────────────
+bot.hears(['📂 Samples', '/samples'], async (ctx) => {
+  await ctx.reply(
+    `Choose a sample type:`,
+    sampleCategoryKeyboard()
+  );
+});
+
+bot.action(/^samplecat:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const category = ctx.match[1];
+  if (category === 'root') {
+    return ctx.reply('Choose a sample type:', sampleCategoryKeyboard());
+  }
+
+  const meta = SAMPLE_CATEGORIES[category];
+  if (!meta) return ctx.reply('Sample type not found.', sampleCategoryKeyboard());
+
+  const hasSamples = Object.values(SAMPLES).some((sample) => sample.category === category);
+  if (!hasSamples) {
+    return ctx.reply(
+      `${meta.icon} ${meta.label} samples are coming soon.`,
+      samplesKeyboard(category)
+    );
+  }
+
+  return ctx.reply(`Choose a ${meta.label} sample:`, samplesKeyboard(category));
+});
+
+bot.action(/^sample:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const sample = SAMPLES[ctx.match[1]];
+  if (!sample) return ctx.reply('Sample not found.', mainMenu());
+
+  try {
+    await ctx.replyWithDocument(
+      { source: sample.path, filename: sample.filename },
+      { caption: sample.label, ...mainMenu() }
+    );
+  } catch (err) {
+    console.error('Sample send error:', err.message);
+    await ctx.reply('⚠️ Could not send that sample. Please try again.', mainMenu());
+  }
 });
 
 // ─── Help ─────────────────────────────────────────────────────────────────────
