@@ -3439,7 +3439,7 @@ button:hover {
 }
 
 .t4-page {
-  --t4-horizontal-scale: 0.99;
+  --t4-horizontal-scale: 0.94;
   position: relative;
   width: min(100%, 210mm);
   aspect-ratio: 210 / 297;

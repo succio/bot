@@ -3596,6 +3596,7 @@ function getWithholdingRate(province, income) {
 }
 
 const T4_PAGE = { width: 1700, height: 2200, slipOffsetY: 1076 };
+const T4_EXPORT_SCALE = 0.985;
 
 const T4_PREVIEW_FIELDS = [
   { key: "year", x1: 814, y1: 100, x2: 975, y2: 150, fontSize: 11, align: "center" },
@@ -4173,9 +4174,13 @@ async function saveT4Pdf(filename) {
   const pageW = typeof pdf.internal?.pageSize?.getWidth === "function" ? pdf.internal.pageSize.getWidth() : pdf.internal?.pageSize?.width;
   const pageH = typeof pdf.internal?.pageSize?.getHeight === "function" ? pdf.internal.pageSize.getHeight() : pdf.internal?.pageSize?.height;
   if (!pageW || !pageH) throw new Error("Could not determine PDF page size");
-  pdf.addImage(bgPage1DataUrl, "JPEG", 0, 0, pageW, pageH);
-  const pxToMmX = (px) => (px / T4_PAGE.width) * pageW;
-  const pxToMmY = (py) => (py / T4_PAGE.height) * pageH;
+  const exportW = pageW * T4_EXPORT_SCALE;
+  const exportH = pageH * T4_EXPORT_SCALE;
+  const exportX = (pageW - exportW) / 2;
+  const exportY = (pageH - exportH) / 2;
+  pdf.addImage(bgPage1DataUrl, "JPEG", exportX, exportY, exportW, exportH);
+  const pxToMmX = (px) => exportX + (px / T4_PAGE.width) * exportW;
+  const pxToMmY = (py) => exportY + (py / T4_PAGE.height) * exportH;
   const pxToPt = (px) => px * 0.75;
   pdf.setTextColor(17, 17, 17);
   pdf.setFont("helvetica", "bold");
@@ -4229,7 +4234,7 @@ async function saveT4Pdf(filename) {
     }
   }
   pdf.addPage("a4", "portrait");
-  pdf.addImage(bgPage2DataUrl, "JPEG", 0, 0, pageW, pageH);
+  pdf.addImage(bgPage2DataUrl, "JPEG", exportX, exportY, exportW, exportH);
   pdf.save(filename);
   return { mode: "download" };
 }
