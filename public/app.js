@@ -3596,7 +3596,10 @@ function getWithholdingRate(province, income) {
 }
 
 const T4_PAGE = { width: 1700, height: 2200, slipOffsetY: 1076 };
-const T4_EXPORT_SCALE = 0.97;
+const T4_PAGE_ASPECT = 210 / 297;
+const T4_VISIBLE_WIDTH = T4_PAGE.height * T4_PAGE_ASPECT;
+const T4_VISIBLE_X = T4_PAGE.width - T4_VISIBLE_WIDTH;
+const T4_EXPORT_SCALE = 1;
 
 const T4_PREVIEW_FIELDS = [
   { key: "year", x1: 814, y1: 100, x2: 975, y2: 150, fontSize: 11, align: "center" },
@@ -3913,6 +3916,14 @@ function buildT4PlacementItems(values = {}) {
   return items;
 }
 
+function t4SourceXToVisiblePercent(x) {
+  return ((x - T4_VISIBLE_X) / T4_VISIBLE_WIDTH) * 100;
+}
+
+function t4SourceWidthToVisiblePercent(width) {
+  return (width / T4_VISIBLE_WIDTH) * 100;
+}
+
 function renderT4Preview(data) {
   const overlay = document.getElementById("t4Overlay");
   if (!overlay) return;
@@ -3925,9 +3936,9 @@ function renderT4Preview(data) {
     const py2 = y2 + yShift;
     const width = x2 - x1;
     const height = py2 - py1;
-    const left = (x1 / T4_PAGE.width) * 100;
+    const left = t4SourceXToVisiblePercent(x1);
     const top = (py1 / T4_PAGE.height) * 100;
-    const widthPct = (width / T4_PAGE.width) * 100;
+    const widthPct = t4SourceWidthToVisiblePercent(width);
     const heightPct = (height / T4_PAGE.height) * 100;
     const classes = ["t4-text"];
     if (align === "right") classes.push("t4-right");
@@ -4178,8 +4189,10 @@ async function saveT4Pdf(filename) {
   const exportH = pageH * T4_EXPORT_SCALE;
   const exportX = (pageW - exportW) / 2;
   const exportY = (pageH - exportH) / 2;
-  pdf.addImage(bgPage1DataUrl, "JPEG", exportX, exportY, exportW, exportH);
-  const pxToMmX = (px) => exportX + (px / T4_PAGE.width) * exportW;
+  const bgW = exportH * (T4_PAGE.width / T4_PAGE.height);
+  const bgX = exportX + exportW - bgW;
+  pdf.addImage(bgPage1DataUrl, "JPEG", bgX, exportY, bgW, exportH);
+  const pxToMmX = (px) => exportX + ((px - T4_VISIBLE_X) / T4_VISIBLE_WIDTH) * exportW;
   const pxToMmY = (py) => exportY + (py / T4_PAGE.height) * exportH;
   const pxToPt = (px) => px * 0.75;
   pdf.setTextColor(17, 17, 17);
@@ -4234,7 +4247,7 @@ async function saveT4Pdf(filename) {
     }
   }
   pdf.addPage("a4", "portrait");
-  pdf.addImage(bgPage2DataUrl, "JPEG", exportX, exportY, exportW, exportH);
+  pdf.addImage(bgPage2DataUrl, "JPEG", bgX, exportY, bgW, exportH);
   pdf.save(filename);
   return { mode: "download" };
 }

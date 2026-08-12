@@ -342,6 +342,14 @@ function randomT4EmploymentCode() {
   return String(Math.floor(10 + Math.random() * 90));
 }
 
+function formatT4EmployeeName(firstName, lastName) {
+  return [lastName, firstName]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .toUpperCase();
+}
+
 const STATEMENT_BANKS = ['TD', 'BMO', 'Simplii', 'Scotiabank', 'CIBC', 'RBC'];
 const VOID_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
 const PAYSTUB_STYLES = {
@@ -746,8 +754,8 @@ bot.on('text', async (ctx) => {
       return ctx.reply('Holder name:', Markup.keyboard([['❌ Cancel']]).resize());
     }
     if (d.docType === 't4') {
-      sess.step = 't4_name';
-      return ctx.reply('Employee name:', Markup.keyboard([['❌ Cancel']]).resize());
+      sess.step = 't4_first_name';
+      return ctx.reply('First name:', Markup.keyboard([['❌ Cancel']]).resize());
     }
   }
 
@@ -839,7 +847,8 @@ bot.on('text', async (ctx) => {
 
   // ── T4 flow ──
   if (d.docType === 't4') {
-    if (sess.step === 't4_name') { d.name = text; sess.step = 't4_address'; return ctx.reply('Employee address:'); }
+    if (sess.step === 't4_first_name') { d.firstName = text; sess.step = 't4_last_name'; return ctx.reply('Last name:'); }
+    if (sess.step === 't4_last_name') { d.lastName = text; d.name = formatT4EmployeeName(d.firstName, d.lastName); sess.step = 't4_address'; return ctx.reply('Employee address:'); }
     if (sess.step === 't4_address') { d.address = text; sess.step = 't4_sin'; return ctx.reply('SIN (e.g. XXX XXX XXX):'); }
     if (sess.step === 't4_sin') { d.sin = normalizeSin(text); sess.step = 't4_year'; return ctx.reply('Tax year (e.g. 2024):'); }
     if (sess.step === 't4_year') { d.taxYear = text; sess.step = 't4_employer'; return ctx.reply('Employer name:'); }
@@ -1036,7 +1045,7 @@ async function finalizeT4(ctx, d) {
     mainMenu());
 
   try {
-    const employeeName = String(d.name || '').toUpperCase().trim();
+    const employeeName = formatT4EmployeeName(d.firstName, d.lastName) || String(d.name || '').toUpperCase().trim();
     const employeeAddress = formatNoaAddress(d.address);
     const employerName = String(d.employer || '').toUpperCase().trim();
     const presetData = {
@@ -1053,14 +1062,16 @@ async function finalizeT4(ctx, d) {
         '16': fmt(Math.min(d.income * 0.0595, 3867.50)),
         '17': '',
         '18': fmt(Math.min(d.income * 0.0166, 1049.12)),
+        '20': '668.00',
         '29': randomT4EmploymentCode(),
         '24': fmt(d.income),
         '26': fmt(d.income),
         '44': '0.00',
         '46': '0.00',
+        '50': '0.00',
         '52': '0.00',
         '55': '',
-        '56': ''
+        '56': '0.00'
       }
     };
 
@@ -1068,8 +1079,8 @@ async function finalizeT4(ctx, d) {
     spendBalance(user, price, 'T4 Slip');
 
     await ctx.replyWithDocument(
-      { source: pdfBuf, filename: `T4_${d.taxYear}_${d.name.replace(/\s+/g, '_')}.pdf` },
-      { caption: `✅ T4 ${d.taxYear} — ${d.name}\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
+      { source: pdfBuf, filename: `T4_${d.taxYear}_${employeeName.replace(/\s+/g, '_')}.pdf` },
+      { caption: `✅ T4 ${d.taxYear} — ${employeeName}\n💰 Balance: ${formatUsd(getBalance(user))}`, parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('T4 gen error:', err.message);

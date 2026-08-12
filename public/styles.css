@@ -3439,7 +3439,7 @@ button:hover {
 }
 
 .t4-page {
-  --t4-horizontal-scale: 0.94;
+  --t4-horizontal-scale: 1;
   position: relative;
   width: min(100%, 210mm);
   aspect-ratio: 210 / 297;
@@ -3452,16 +3452,13 @@ button:hover {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  transform: scaleX(var(--t4-horizontal-scale));
-  transform-origin: center top;
+  object-fit: cover;
+  object-position: right top;
 }
 
 .t4-overlay {
   position: absolute;
   inset: 0;
-  transform: scaleX(var(--t4-horizontal-scale));
-  transform-origin: center top;
 }
 
 .t4-text {
