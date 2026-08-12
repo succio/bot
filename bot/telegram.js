@@ -1049,7 +1049,7 @@ async function finalizeT4(ctx, d) {
         employeeAddress: `${employeeName}\n${employeeAddress}`,
         '10': provinceFromAddress(d.address),
         '14': fmt(d.income),
-        '22': fmt(d.income * 0.18),
+        '22': fmt(d.income * 0.3),
         '16': fmt(Math.min(d.income * 0.0595, 3867.50)),
         '17': '',
         '18': fmt(Math.min(d.income * 0.0166, 1049.12)),
