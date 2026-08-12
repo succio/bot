@@ -3618,7 +3618,7 @@ const T4_PREVIEW_FIELDS = [
   { key: "29", x1: 804, y1: 408, x2: 885, y2: 458, fontSize: 12, align: "center" },
   { key: "44", x1: 1344, y1: 508, x2: 1547, y2: 558, fontSize: 12, align: "right" },
   { key: "46", x1: 1344, y1: 608, x2: 1547, y2: 658, fontSize: 12, align: "right" },
-  { key: "50", x1: 1344, y1: 708, x2: 1547, y2: 758, fontSize: 10, align: "left" },
+  { key: "50", x1: 1344, y1: 708, x2: 1547, y2: 758, fontSize: 12, align: "right" },
   { key: "52", x1: 974, y1: 708, x2: 1177, y2: 758, fontSize: 12, align: "right" },
   { key: "55", x1: 974, y1: 808, x2: 1177, y2: 858, fontSize: 12, align: "right" },
   { key: "56", x1: 1344, y1: 808, x2: 1547, y2: 858, fontSize: 12, align: "right" },
@@ -3853,8 +3853,8 @@ function applyT4AutoCalculation() {
     setT4FieldValue("18", formatT4AutoAmount(t4[18], { blankZero: true }));
     setT4FieldValue("24", formatT4AutoAmount(t4[24], { blankZero: true }));
     setT4FieldValue("26", formatT4AutoAmount(t4[26], { blankZero: true }));
-    setT4FieldValue("55", formatT4AutoAmount(t4[55], { blankZero: true }));
-    setT4FieldValue("56", formatT4AutoAmount(t4[56], { blankZero: true }));
+    setT4FieldValue("55", formatT4AutoAmount(t4[55]));
+    setT4FieldValue("56", formatT4AutoAmount(t4[56]));
     setT4FieldValue("28_cpp_qpp", t4.box28.cppQppExempt ? "X" : "");
     setT4FieldValue("28_ei", t4.box28.eiExempt ? "X" : "");
     setT4FieldValue("28_ppip", t4.box28.ppipExempt ? "X" : "");
