@@ -174,6 +174,20 @@ async function generatePdf(presetData) {
         document.head.appendChild(style);
       }
 
+      if (type === 't4Slip') {
+        const style = document.createElement('style');
+        style.textContent = `
+          @page { size: A4; margin: 0; }
+          html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          #t4Report { display: block !important; width: 210mm !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+          #t4Report .t4-page { width: 210mm !important; height: 297mm !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; overflow: hidden !important; break-after: page !important; page-break-after: always !important; }
+          #t4Report .t4-page:last-child { break-after: auto !important; page-break-after: auto !important; }
+          #t4Report .t4-bg-image { object-fit: fill !important; transform: scaleX(var(--t4-horizontal-scale, 0.94)) !important; transform-origin: center top !important; }
+          #t4Report .t4-overlay { transform: scaleX(var(--t4-horizontal-scale, 0.94)) !important; transform-origin: center top !important; }
+        `;
+        document.head.appendChild(style);
+      }
+
       if (type === 'tdVoidCheck') {
         const style = document.createElement('style');
         style.textContent = `
