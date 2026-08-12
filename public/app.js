@@ -3596,7 +3596,7 @@ function getWithholdingRate(province, income) {
 }
 
 const T4_PAGE = { width: 1700, height: 2200, slipOffsetY: 1076 };
-const T4_EXPORT_SCALE = 0.98;
+const T4_EXPORT_SCALE = 0.97;
 
 const T4_PREVIEW_FIELDS = [
   { key: "year", x1: 814, y1: 100, x2: 975, y2: 150, fontSize: 11, align: "center" },
