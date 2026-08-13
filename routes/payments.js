@@ -21,6 +21,28 @@ function addUsdBalance(user, amount, label) {
   user.package = label;
 }
 
+function isPaymentComplete(status) {
+  return ['finished', 'confirmed'].includes(String(status || '').toLowerCase());
+}
+
+function processedPaymentKey(payload) {
+  return String(payload.payment_id || payload.invoice_id || payload.order_id || '').trim();
+}
+
+function hasProcessedPayment(user, key) {
+  if (!key) return false;
+  return Array.isArray(user.processedPaymentIds) && user.processedPaymentIds.includes(key);
+}
+
+function markPaymentProcessed(user, key) {
+  if (!key) return;
+  if (!Array.isArray(user.processedPaymentIds)) user.processedPaymentIds = [];
+  if (!user.processedPaymentIds.includes(key)) {
+    user.processedPaymentIds.push(key);
+    user.processedPaymentIds = user.processedPaymentIds.slice(-100);
+  }
+}
+
 router.get('/packages', (req, res) => {
   res.json({ packages: PACKAGES });
 });
@@ -92,7 +114,7 @@ router.post('/ipn', (req, res) => {
     const payload = JSON.parse(rawBody);
     console.log('IPN received:', JSON.stringify(payload));
 
-    if (payload.payment_status === 'finished') {
+    if (isPaymentComplete(payload.payment_status)) {
       const orderId = payload.order_id || '';
 
       // Telegram payment: tg-<telegramId>-<packageId>-<timestamp>
@@ -110,7 +132,18 @@ router.post('/ipn', (req, res) => {
         console.log(`IPN Telegram: orderId=${orderId}, telegramId=${telegramId}, packageId=${packageId}, userFound=${!!user}, pkgFound=${!!pkg}`);
         if (user && pkg && Number(pkg.amount || pkg.price || 0) > 0) {
           const addAmount = Number(pkg.amount || pkg.price || 0);
+          const paidAmount = Number(payload.price_amount || 0);
+          const paymentKey = processedPaymentKey(payload);
+          if (hasProcessedPayment(user, paymentKey)) {
+            console.log(`IPN Telegram: payment already processed (${paymentKey}).`);
+            return res.status(200).json({ message: 'IPN already processed.' });
+          }
+          if (paidAmount && paidAmount + 0.01 < addAmount) {
+            console.warn(`IPN Telegram: Paid amount ${paidAmount} < expected ${addAmount}. TG: ${telegramId}`);
+            return res.status(200).json({ message: 'IPN received, amount below expected.' });
+          }
           addUsdBalance(user, addAmount, pkg.name);
+          markPaymentProcessed(user, paymentKey);
           scheduleSave();
           console.log(`Added ${formatUsd(addAmount)} (${pkg.name}) to TG user ${telegramId}. Total: ${formatUsd(user.balanceUsd)}`);
           try {
@@ -136,11 +169,17 @@ router.post('/ipn', (req, res) => {
           const user = users.get(email.toLowerCase());
           if (user && pkg) {
             const paidAmount = parseFloat(payload.price_amount);
+            const paymentKey = processedPaymentKey(payload);
+            if (hasProcessedPayment(user, paymentKey)) {
+              console.log(`IPN: payment already processed (${paymentKey}).`);
+              return res.status(200).json({ message: 'IPN already processed.' });
+            }
             if (paidAmount < pkg.price) {
               console.warn(`IPN: Paid amount ${paidAmount} < pkg price ${pkg.price}. Email: ${email}`);
             } else {
               const addAmount = Number(pkg.amount || pkg.price || 0);
               addUsdBalance(user, addAmount, pkg.name);
+              markPaymentProcessed(user, paymentKey);
               scheduleSave();
               console.log(`Added ${formatUsd(addAmount)} (${pkg.name}) to ${email}. Total: ${formatUsd(user.balanceUsd)}`);
             }

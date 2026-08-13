@@ -110,11 +110,67 @@ function topupCurrencyLabel(value) {
   return TOPUP_CURRENCIES.find((currency) => currency.value === value)?.label || String(value || '').toUpperCase();
 }
 
+function getPublicAppUrl() {
+  const url = process.env.APP_URL || process.env.RENDER_BASE_URL || (
+    process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : ''
+  );
+  const clean = String(url || '').replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(clean)) {
+    throw new Error('APP_URL is not set to a public HTTP(S) URL. Payment IPN callbacks cannot be created.');
+  }
+  return clean;
+}
+
+function setPendingTopup(ctx, data) {
+  const user = getOrCreateTgUser(ctx);
+  user.pendingTopup = {
+    amount: Math.round(Number(data.amount || 0) * 100) / 100,
+    packageId: data.packageId || null,
+    label: data.label || null,
+    createdAt: new Date().toISOString()
+  };
+  scheduleSave();
+
+  const sess = initSession(ctx);
+  sess.flow = 'topup_currency';
+  sess.step = 'currency';
+  sess.data = { ...user.pendingTopup };
+}
+
+function getPendingTopup(ctx) {
+  const sess = initSession(ctx);
+  if (sess.flow === 'topup_currency' && sess.data?.amount) return sess.data;
+
+  const user = getOrCreateTgUser(ctx);
+  if (user.pendingTopup?.amount) {
+    sess.flow = 'topup_currency';
+    sess.step = 'currency';
+    sess.data = { ...user.pendingTopup };
+    return sess.data;
+  }
+
+  return null;
+}
+
+function clearPendingTopup(ctx) {
+  const sess = initSession(ctx);
+  sess.flow = null;
+  sess.step = null;
+  sess.data = {};
+
+  const user = getOrCreateTgUser(ctx);
+  if (user.pendingTopup) {
+    delete user.pendingTopup;
+    scheduleSave();
+  }
+}
+
 async function createTopupPayment(ctx, amount, payCurrency, packageId = null, label = null) {
   const cents = Math.round(Number(amount) * 100);
   const orderId = packageId
     ? `tg-${ctx.from.id}-${packageId}-${Date.now()}`
     : `tg-${ctx.from.id}-custom-${cents}-${Date.now()}`;
+  const appUrl = getPublicAppUrl();
 
   const response = await axios.post(
     'https://api.nowpayments.io/v1/payment',
@@ -124,7 +180,7 @@ async function createTopupPayment(ctx, amount, payCurrency, packageId = null, la
       pay_currency: payCurrency,
       order_id: orderId,
       order_description: `${label || 'Custom Balance Top Up'} for Telegram user ${ctx.from.id}`,
-      ipn_callback_url: `${process.env.APP_URL}/api/payments/ipn`
+      ipn_callback_url: `${appUrl}/api/payments/ipn`
     },
     { headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY, 'Content-Type': 'application/json' } }
   );
@@ -132,28 +188,47 @@ async function createTopupPayment(ctx, amount, payCurrency, packageId = null, la
   return response.data;
 }
 
-async function sendTopupPayment(ctx, payment, amount, payCurrency) {
+function formatTopupPaymentText(payment, amount, payCurrency) {
   const address = payment.pay_address || payment.payin_address || payment.address;
   const payAmount = payment.pay_amount || payment.amount;
   const paymentId = payment.payment_id || payment.id || 'pending';
   if (!address || !payAmount) throw new Error('NOWPayments response did not include payment address or amount.');
 
+  return {
+    address,
+    text:
+      `💳 *Payment Request Created*\n\n` +
+      `Top up amount: *${formatUsd(amount)} USD*\n` +
+      `Send exactly: \`${payAmount}\` ${topupCurrencyLabel(payCurrency)}\n\n` +
+      `Wallet address:\n\`${address}\`\n\n` +
+      `Payment ID: \`${paymentId}\`\n\n` +
+      `Your balance updates automatically after the payment is confirmed.`
+  };
+}
+
+async function sendTopupPayment(ctx, payment, amount, payCurrency) {
+  const { address, text } = formatTopupPaymentText(payment, amount, payCurrency);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(address)}`;
 
-  await ctx.replyWithPhoto(
-    qrUrl,
-    {
-      caption:
-        `💳 *Payment Request Created*\n\n` +
-        `Top up amount: *${formatUsd(amount)} USD*\n` +
-        `Send exactly: \`${payAmount}\` ${topupCurrencyLabel(payCurrency)}\n\n` +
-        `Wallet address:\n\`${address}\`\n\n` +
-        `Payment ID: \`${paymentId}\`\n\n` +
-        `Your balance updates automatically after the payment is confirmed.`,
-      parse_mode: 'Markdown',
-      ...mainMenu()
-    }
-  );
+  try {
+    await ctx.replyWithPhoto(
+      qrUrl,
+      {
+        caption: text,
+        parse_mode: 'Markdown',
+        ...mainMenu()
+      }
+    );
+  } catch (err) {
+    console.error('Top-up QR send error:', err.message);
+    await ctx.reply(
+      `${text}\n\nQR image could not be sent, but the wallet address above is valid.`,
+      {
+        parse_mode: 'Markdown',
+        ...mainMenu()
+      }
+    );
+  }
 }
 
 function bankId(bankName) {
@@ -610,25 +685,23 @@ bot.action(/^buy:(.+)$/, async (ctx) => {
   const pkg = PACKAGES[packageId];
   if (!pkg) return ctx.reply('Unknown package.');
 
-  const sess = initSession(ctx);
-  sess.flow = 'topup_currency';
-  sess.step = 'currency';
-  sess.data = {
+  setPendingTopup(ctx, {
     amount: Number(pkg.amount || pkg.price),
     packageId,
     label: pkg.name
-  };
+  });
+  const pending = getPendingTopup(ctx);
 
   return ctx.reply(
-    `Choose payment currency for *${formatUsd(sess.data.amount)} USD*:`,
+    `Choose payment currency for *${formatUsd(pending.amount)} USD*:`,
     { parse_mode: 'Markdown', ...topupCurrencyKeyboard() }
   );
 });
 
 bot.action(/^paycur:(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
-  const sess = initSession(ctx);
-  if (sess.flow !== 'topup_currency' || !sess.data?.amount) {
+  const pending = getPendingTopup(ctx);
+  if (!pending?.amount) {
     return ctx.reply('Please press Add Balance and choose an amount first.', mainMenu());
   }
 
@@ -636,14 +709,13 @@ bot.action(/^paycur:(.+)$/, async (ctx) => {
   const allowed = TOPUP_CURRENCIES.some((currency) => currency.value === payCurrency);
   if (!allowed) return ctx.reply('Please choose one of the listed payment currencies.');
 
-  const { amount, packageId, label } = sess.data;
-  sess.flow = null;
-  sess.step = null;
-  sess.data = {};
+  const { amount, packageId, label } = pending;
 
   try {
     const payment = await createTopupPayment(ctx, amount, payCurrency, packageId, label);
-    return sendTopupPayment(ctx, payment, amount, payCurrency);
+    await sendTopupPayment(ctx, payment, amount, payCurrency);
+    clearPendingTopup(ctx);
+    return;
   } catch (err) {
     console.error('Bot direct payment error:', err.response?.data || err.message);
     return ctx.reply('⚠️ Could not create payment details. Please try again later.', mainMenu());
@@ -680,6 +752,11 @@ bot.hears('❌ Cancel', async (ctx) => {
   sess.flow = null;
   sess.step = null;
   sess.data = {};
+  const user = getOrCreateTgUser(ctx);
+  if (user.pendingTopup) {
+    delete user.pendingTopup;
+    scheduleSave();
+  }
   await ctx.reply('Cancelled.', mainMenu());
 });
 
@@ -692,6 +769,11 @@ bot.on('text', async (ctx) => {
     sess.flow = null;
     sess.step = null;
     sess.data = {};
+    const user = getOrCreateTgUser(ctx);
+    if (user.pendingTopup) {
+      delete user.pendingTopup;
+      scheduleSave();
+    }
     return ctx.reply('Cancelled.', mainMenu());
   }
 
@@ -701,13 +783,11 @@ bot.on('text', async (ctx) => {
     if (amount < MIN_TOPUP_USD) return ctx.reply(`Minimum amount is ${formatUsd(MIN_TOPUP_USD)}. Enter a higher amount:`);
     if (amount > MAX_TOPUP_USD) return ctx.reply(`Maximum amount is ${formatUsd(MAX_TOPUP_USD)}. Enter a lower amount:`);
 
-    sess.flow = 'topup_currency';
-    sess.step = 'currency';
-    sess.data = {
+    setPendingTopup(ctx, {
       amount,
       packageId: null,
       label: `Custom ${formatUsd(amount)} Balance Top Up`
-    };
+    });
 
     return ctx.reply(
       `Choose payment currency for *${formatUsd(amount)} USD*:`,
