@@ -644,6 +644,12 @@ function localAreaFromDetails(details) {
   return '';
 }
 
+function detailValue(details, label) {
+  const escaped = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = String(details || '').match(new RegExp(`${escaped}:\\s*([^\\n]+)`, 'i'));
+  return match ? match[1].trim() : '';
+}
+
 function requestedTransactionCount(bank, details) {
   const match = String(details || '').match(/Number of Transactions:\s*(\d+)/i);
   const count = match ? parseInt(match[1], 10) : 50;
@@ -856,9 +862,14 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
       const province = provinceMatch ? provinceMatch[1].toUpperCase() : 'ON';
       const localArea = localAreaFromDetails(details);
+      const suppliedBranchAddress = detailValue(details, 'Branch address');
 
       // Pad transactions server-side if the AI returned fewer than requested
       const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.simpliiStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      if (suppliedBranchAddress) {
+        if (bank === 'rbc') inner.bankBranch ||= suppliedBranchAddress;
+        else inner.branchAddress ||= suppliedBranchAddress;
+      }
       if (bank === 'bmo') {
         parsed.documentType = 'bmoStatement';
         parsed.bmoStatement = inner;

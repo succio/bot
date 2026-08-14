@@ -427,6 +427,14 @@ function formatT4EmployeeName(firstName, lastName) {
 
 const STATEMENT_BANKS = ['TD', 'BMO', 'Simplii', 'Scotiabank', 'CIBC', 'RBC'];
 const VOID_BANKS = ['TD', 'BMO', 'Scotiabank', 'CIBC', 'RBC'];
+const STATEMENT_MAX_ROWS = {
+  td: 50,
+  bmo: 25,
+  simplii: 21,
+  scotia: 34,
+  cibc: 30,
+  rbc: 40
+};
 const PAYSTUB_STYLES = {
   'Style 1: classic-blue': 'classic-blue',
   'Style 2: northern-mint': 'northern-mint',
@@ -551,6 +559,10 @@ function samplesKeyboard(category) {
 
   rows.push([Markup.button.callback('Back to sample types', 'samplecat:root')]);
   return Markup.inlineKeyboard(rows);
+}
+
+function statementMaxRows(bankName) {
+  return STATEMENT_MAX_ROWS[bankId(bankName)] || 50;
 }
 
 // ─── /start ───────────────────────────────────────────────────────────────────
@@ -864,6 +876,11 @@ bot.on('text', async (ctx) => {
     }
     if (sess.step === 'bank_branch_number') {
       d.branchNumber = text;
+      sess.step = 'bank_branch_address';
+      return ctx.reply('Branch address:');
+    }
+    if (sess.step === 'bank_branch_address') {
+      d.branchAddress = text;
       sess.step = 'bank_start_date';
       return ctx.reply('Start Date (YYYY-MM-DD):');
     }
@@ -894,6 +911,16 @@ bot.on('text', async (ctx) => {
     }
     if (sess.step === 'bank_employer') {
       d.employer = text;
+      const maxRows = statementMaxRows(d.bank);
+      sess.step = 'bank_transaction_rows';
+      return ctx.reply(`Total transaction rows (max: ${maxRows} for ${d.bank} statements):`);
+    }
+    if (sess.step === 'bank_transaction_rows') {
+      const maxRows = statementMaxRows(d.bank);
+      const val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+      if (!Number.isInteger(val) || val < 1) return ctx.reply(`Please enter a valid row count from 1 to ${maxRows}:`);
+      if (val > maxRows) return ctx.reply(`${d.bank} statements support a maximum of ${maxRows} transaction rows. Enter ${maxRows} or less:`);
+      d.txCount = val;
       return queueGeneration(ctx, sess, `${d.months}-month ${d.bank} statement`, (data) => finalizeBankStatement(ctx, data));
     }
   }
@@ -1019,12 +1046,13 @@ async function finalizeBankStatement(ctx, d) {
     const port = parseInt(process.env.PORT, 10) || 5000;
     const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
     const bank = bankId(d.bank);
-    const txCount = bank === 'simplii' ? 21 : bank === 'bmo' ? 25 : bank === 'cibc' ? 30 : bank === 'scotia' ? 34 : bank === 'rbc' ? 40 : 50;
+    const txCount = Math.min(Number(d.txCount) || statementMaxRows(d.bank), statementMaxRows(d.bank));
     const details = [
       `Account holder: ${d.acctName}`,
       `Address: ${d.address}`,
       `Account number: ${d.acctNumber}`,
       `Branch no: ${d.branchNumber}`,
+      `Branch address: ${d.branchAddress}`,
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $5000.00`,
