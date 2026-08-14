@@ -1258,7 +1258,7 @@ async function finalizePaystub(ctx, d) {
     const presetData = {
       documentType: 'payroll',
       companyName: d.employer.toUpperCase(),
-      brandText: d.employer.split(' ')[0].toUpperCase(),
+      brandText: d.employer.toUpperCase(),
       brandColor: '#1a3a6b',
       payrollLogoDataUrl: '',
       designTemplate: d.designTemplate || 'classic-blue',
