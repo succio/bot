@@ -21,6 +21,27 @@ function addUsdBalance(user, amount, label) {
   user.package = label;
 }
 
+function getOrCreateTelegramPaymentUser(telegramId) {
+  const key = `tg:${telegramId}`;
+  let user = users.get(key);
+  if (!user) {
+    user = {
+      email: key,
+      password: '',
+      credits: 0,
+      balanceUsd: 0,
+      lastPurchase: null,
+      package: null,
+      telegramId,
+      telegramName: null,
+      createdAt: new Date().toISOString()
+    };
+    users.set(key, user);
+    console.log(`IPN Telegram: created missing TG user ${telegramId} from payment callback.`);
+  }
+  return user;
+}
+
 function isPaymentComplete(status) {
   return ['finished', 'confirmed'].includes(String(status || '').toLowerCase());
 }
@@ -127,8 +148,7 @@ router.post('/ipn', (req, res) => {
         const pkg = isCustomTopup
           ? { name: `Custom ${formatUsd(customAmount)} Balance Top Up`, price: customAmount, amount: customAmount }
           : PACKAGES[packageId];
-        const key = `tg:${telegramId}`;
-        const user = users.get(key);
+        const user = getOrCreateTelegramPaymentUser(telegramId);
         console.log(`IPN Telegram: orderId=${orderId}, telegramId=${telegramId}, packageId=${packageId}, userFound=${!!user}, pkgFound=${!!pkg}`);
         if (user && pkg && Number(pkg.amount || pkg.price || 0) > 0) {
           const addAmount = Number(pkg.amount || pkg.price || 0);
