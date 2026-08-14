@@ -403,6 +403,18 @@ function formatNoaAddress(address) {
   ].filter(Boolean).join('\n');
 }
 
+function formatStatementAddress(address, options = {}) {
+  let value = String(address || '');
+  if (options.dropLeadingCode) value = value.replace(/^\s*\d{3,6}\s*(?:\r?\n|,)\s*/, '');
+  return formatNoaAddress(value)
+    .toUpperCase()
+    .replace(/[ \t]+/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
 function randomDigits(length) {
   let value = '';
   for (let i = 0; i < length; i += 1) value += Math.floor(Math.random() * 10);
@@ -877,7 +889,7 @@ bot.on('text', async (ctx) => {
     if (sess.step === 'bank_branch_number') {
       d.branchNumber = text;
       sess.step = 'bank_branch_address';
-      return ctx.reply('Branch address:');
+      return ctx.reply('Branch address (street, city/province/postal - no branch number):');
     }
     if (sess.step === 'bank_branch_address') {
       d.branchAddress = text;
@@ -1064,12 +1076,14 @@ async function finalizeBankStatement(ctx, d) {
     const appUrl = process.env.RENDER_BASE_URL || `http://127.0.0.1:${port}`;
     const bank = bankId(d.bank);
     const txCount = Math.min(Number(d.txCount) || statementMaxRows(d.bank), statementMaxRows(d.bank));
+    const accountAddress = bank === 'td' ? formatStatementAddress(d.address) : d.address;
+    const branchAddress = bank === 'td' ? formatStatementAddress(d.branchAddress, { dropLeadingCode: true }) : d.branchAddress;
     const details = [
       `Account holder: ${d.acctName}`,
-      `Address: ${d.address}`,
+      `Address: ${accountAddress}`,
       `Account number: ${d.acctNumber}`,
       `Branch no: ${d.branchNumber}`,
-      `Branch address: ${d.branchAddress}`,
+      `Branch address: ${branchAddress}`,
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $5000.00`,

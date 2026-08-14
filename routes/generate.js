@@ -645,9 +645,23 @@ function localAreaFromDetails(details) {
 }
 
 function detailValue(details, label) {
-  const escaped = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = String(details || '').match(new RegExp(`${escaped}:\\s*([^\\n]+)`, 'i'));
-  return match ? match[1].trim() : '';
+  const wanted = String(label || '').toLowerCase();
+  const lines = String(details || '').replace(/\r/g, '').split('\n');
+  const startIndex = lines.findIndex((line) => {
+    const match = line.match(/^([^:]+):\s*(.*)$/);
+    return match && match[1].trim().toLowerCase() === wanted;
+  });
+  if (startIndex < 0) return '';
+
+  const first = lines[startIndex].replace(/^([^:]+):\s*/, '').trim();
+  const valueLines = first ? [first] : [];
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (/^[A-Za-z][A-Za-z0-9 /()'-]*:\s*/.test(line)) break;
+    valueLines.push(line);
+  }
+  return valueLines.join('\n').trim();
 }
 
 function requestedTransactionCount(bank, details) {
@@ -964,10 +978,15 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
       const province = provinceMatch ? provinceMatch[1].toUpperCase() : 'ON';
       const localArea = localAreaFromDetails(details);
+      const suppliedAddress = detailValue(details, 'Address');
       const suppliedBranchAddress = detailValue(details, 'Branch address');
 
       // Pad transactions server-side if the AI returned fewer than requested
       const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.simpliiStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      if (bank === 'td') {
+        if (suppliedAddress) inner.address = suppliedAddress.toUpperCase();
+        if (suppliedBranchAddress) inner.branchAddress = suppliedBranchAddress.toUpperCase();
+      }
       if (suppliedBranchAddress) {
         if (bank === 'rbc') inner.bankBranch ||= suppliedBranchAddress;
         else inner.branchAddress ||= suppliedBranchAddress;

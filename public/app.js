@@ -2760,7 +2760,7 @@ function splitAddressLines(value) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  return [lines[0] ?? "", lines[1] ?? ""];
+  return [lines[0] ?? "", lines.slice(1).join(" ")];
 }
 
 function normalizeStatementTransaction(row) {
