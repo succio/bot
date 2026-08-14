@@ -666,11 +666,68 @@ function titleCaseMerchant(text) {
     .replace(/\bEnmax\b/g, 'ENMAX');
 }
 
+function merchantPoolFor(province, localArea = '') {
+  const prov = (province || 'ON').toUpperCase();
+  return LOCAL_FILLER_MERCHANTS[localArea] || FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
+}
+
+function isGenericPurchaseDescription(value) {
+  return /^(purchase|point of sale purchase|debit card purchase|card purchase|pos purchase|payment)$/i
+    .test(String(value || '').trim());
+}
+
+function isCreditLike(tx, bank) {
+  if (bank === 'td') return Number(tx.credit || 0) > 0;
+  if (bank === 'bmo') return Number(tx.added || 0) > 0;
+  if (bank === 'simplii') return Number(tx.fundsIn || 0) > 0;
+  return Number(tx.deposited || 0) > 0;
+}
+
+function hasMerchantDetail(tx) {
+  return Boolean(String(tx.detail || '').trim());
+}
+
+function localMerchant(pool, index) {
+  return pool[index % pool.length];
+}
+
+function fixGenericTransactionDescriptions(txs, bank, province, localArea = '') {
+  const pool = merchantPoolFor(province, localArea);
+  let merchantIndex = 0;
+
+  return (txs || []).map((tx) => {
+    if (!tx || isCreditLike(tx, bank)) return tx;
+
+    const desc = String(tx.description || '').trim();
+    const detail = String(tx.detail || '').trim();
+    const generic = isGenericPurchaseDescription(desc);
+    if (!generic && (bank !== 'scotia' || detail)) return tx;
+
+    const merchant = localMerchant(pool, merchantIndex++);
+    if (bank === 'td') {
+      return { ...tx, description: `OPOS ${merchant}` };
+    }
+    if (bank === 'scotia') {
+      return {
+        ...tx,
+        description: generic ? 'Purchase' : desc,
+        detail: hasMerchantDetail(tx) ? tx.detail : titleCaseMerchant(merchant)
+      };
+    }
+    if (bank === 'bmo') {
+      return { ...tx, description: `Debit Card Purchase\n${titleCaseMerchant(merchant)}` };
+    }
+    if (bank === 'simplii') {
+      return { ...tx, description: titleCaseMerchant(merchant) };
+    }
+    return { ...tx, description: merchant };
+  });
+}
+
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
   if (txs.length >= targetCount) return txs;
   const needed = targetCount - txs.length;
-  const prov = (province || 'ON').toUpperCase();
-  const pool = LOCAL_FILLER_MERCHANTS[localArea] || FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
+  const pool = merchantPoolFor(province, localArea);
   const days = daysInMonth(year, month);
   const mu = MONTH_UPPER[month - 1];
   const ms = MONTH_SHORT[month - 1];
@@ -844,6 +901,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
         }));
       }
       if (inner.transactions) {
+        inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
       }
 
