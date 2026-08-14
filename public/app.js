@@ -3373,7 +3373,44 @@ function writeNoaRows(tableBody, rows) {
   }
 }
 
-function generateNOA_2024(annualIncome, taxDeducted) {
+const NOA_PROVINCE_NAMES = {
+  AB: "Alberta",
+  BC: "British Columbia",
+  MB: "Manitoba",
+  NB: "New Brunswick",
+  NL: "Newfoundland and Labrador",
+  NS: "Nova Scotia",
+  NT: "Northwest Territories",
+  NU: "Nunavut",
+  ON: "Ontario",
+  PE: "Prince Edward Island",
+  QC: "Quebec",
+  SK: "Saskatchewan",
+  YT: "Yukon",
+};
+
+function noaProvinceNameFromAddress(address, fallback = "Ontario") {
+  const text = String(address || "").toUpperCase();
+  for (const [code, name] of Object.entries(NOA_PROVINCE_NAMES)) {
+    const normalizedName = name.toUpperCase().replace(/\s+AND\s+/g, " ");
+    if (new RegExp(`\\b${code}\\b`).test(text) || text.includes(name.toUpperCase()) || text.includes(normalizedName)) {
+      return name;
+    }
+  }
+  return fallback;
+}
+
+function withNoaProvinceLabels(rows, provinceName) {
+  const name = provinceName || "Ontario";
+  return (rows ?? []).map((row) => ({
+    ...row,
+    description: String(row.description ?? "")
+      .replace(/\bTotal Ontario non-refundable tax credits\b/g, `Total ${name} non-refundable tax credits`)
+      .replace(/\bNet Ontario tax\b/g, `Net ${name} tax`),
+  }));
+}
+
+function generateNOA_2024(annualIncome, taxDeducted, provinceName = "Ontario") {
   const income = Math.max(0, annualIncome);
   const deducted = Math.max(0, taxDeducted);
 
@@ -3445,10 +3482,10 @@ function generateNOA_2024(annualIncome, taxDeducted) {
     { line: "23600", description: "Net income", amount: r2(netIncome), crdr: "" },
     { line: "26000", description: "Taxable income", amount: r2(taxableIncome), crdr: "" },
     { line: "35000", description: "Total federal non-refundable tax credits", amount: r2(fedNonRefCredits), crdr: "" },
-    { line: "61500", description: "Total Ontario non-refundable tax credits", amount: r2(provNonRefCredits), crdr: "" },
+    { line: "61500", description: `Total ${provinceName} non-refundable tax credits`, amount: r2(provNonRefCredits), crdr: "" },
     { line: "42000", description: "Net federal tax", amount: r2(netFedTax), crdr: "" },
     { line: "42100", description: "CPP contributions payable", amount: r2(cppContrib), crdr: "" },
-    { line: "42800", description: "Net Ontario tax", amount: r2(netProvTax), crdr: "" },
+    { line: "42800", description: `Net ${provinceName} tax`, amount: r2(netProvTax), crdr: "" },
     { line: "43500", description: "Total payable", amount: r2(totalPayable), crdr: "" },
     { line: "43700", description: "Total income tax deducted", amount: r2(deducted), crdr: "" },
     { line: "47600", description: "Tax paid by instalments", amount: 0, crdr: "" },
@@ -3465,9 +3502,10 @@ function renderNoaPreview(data) {
   const noa = data.noaStatement ?? {};
   const annualIncome = toNumber(noa.annualIncome);
   const taxDeducted = toNumber(noa.taxDeducted);
-  const calc = generateNOA_2024(annualIncome, taxDeducted);
+  const provinceName = noaProvinceNameFromAddress(noa.address);
+  const calc = generateNOA_2024(annualIncome, taxDeducted, provinceName);
   const manualRows = noa.summaryRows ?? [];
-  const summaryRows = manualRows.length > 0 ? manualRows : calc.summaryRows;
+  const summaryRows = withNoaProvinceLabels(manualRows.length > 0 ? manualRows : calc.summaryRows, provinceName);
   let refundAmount = calc.refundOrOwing;
   let isRefund = calc.isRefund;
   if (manualRows.length > 0) {
