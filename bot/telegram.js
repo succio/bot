@@ -906,6 +906,23 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
+      sess.step = 'bank_payroll_dates';
+      return ctx.reply('Payroll deposit dates (comma-separated days or full dates, e.g. 1, 15 or 2026-07-01, 2026-07-15):');
+    }
+    if (sess.step === 'bank_payroll_dates') {
+      const days = text
+        .split(/[,\n]+/)
+        .map((part) => {
+          const iso = part.match(/\b\d{4}-\d{2}-(\d{2})\b/);
+          if (iso) return parseInt(iso[1], 10);
+          return parseInt(part.replace(/\D/g, ''), 10);
+        })
+        .filter((day) => Number.isInteger(day));
+      const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
+      if (!uniqueDays.length || uniqueDays.some((day) => day < 1 || day > 31)) {
+        return ctx.reply('Please enter valid day numbers or full dates, like: 1, 15 or 2026-07-01, 2026-07-15');
+      }
+      d.payrollDays = uniqueDays;
       sess.step = 'bank_employer';
       return ctx.reply('Employer name:');
     }
@@ -1057,6 +1074,7 @@ async function finalizeBankStatement(ctx, d) {
       `Statement end date: ${d.endDate}`,
       `Opening balance: $5000.00`,
       `Biweekly payroll/deposits: $${Number(d.income).toFixed(2)}`,
+      `Payroll deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
       `Employer name: ${d.employer}`,
       `Payroll deposit description: ${statementPayrollDescription(d.employer)}`,
       `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,

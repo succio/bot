@@ -730,6 +730,109 @@ function fixGenericTransactionDescriptions(txs, bank, province, localArea = '') 
   });
 }
 
+function amountFromDetails(details, label) {
+  const raw = detailValue(details, label);
+  const match = raw.match(/-?\$?\s*([\d,]+(?:\.\d+)?)/);
+  return match ? Number(match[1].replace(/,/g, '')) || 0 : 0;
+}
+
+function payrollDaysFromDetails(details, year, month) {
+  const raw = detailValue(details, 'Payroll deposit days') || detailValue(details, 'Payroll deposit dates');
+  const maxDay = daysInMonth(year, month);
+  if (!raw) return [1, 15].filter((day) => day <= maxDay);
+
+  const days = String(raw)
+    .split(/[,\n]+/)
+    .map((part) => {
+      const iso = part.match(/\b\d{4}-\d{2}-(\d{2})\b/);
+      if (iso) return Number(iso[1]);
+      const monthDay = part.match(/\b(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s*\.?\s*(\d{1,2})\b/i);
+      if (monthDay) return Number(monthDay[1]);
+      const number = part.match(/\b([0-3]?\d)\b/);
+      return number ? Number(number[1]) : null;
+    })
+    .filter((day) => Number.isInteger(day) && day >= 1 && day <= maxDay);
+
+  return [...new Set(days)].sort((a, b) => a - b);
+}
+
+function transactionDateText(tx) {
+  return String(tx.date || tx.transDate || tx.effDate || '').trim();
+}
+
+function transactionDay(tx) {
+  const raw = transactionDateText(tx).toUpperCase();
+  const afterMonth = raw.match(/\b(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s*\.?\s*(\d{1,2})\b/);
+  if (afterMonth) return Number(afterMonth[1]);
+  const beforeMonth = raw.match(/\b(\d{1,2})\s*(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/);
+  if (beforeMonth) return Number(beforeMonth[1]);
+  const anyDay = raw.match(/\b([0-3]?\d)\b/);
+  return anyDay ? Number(anyDay[1]) : 1;
+}
+
+function sortTransactionsByDate(txs) {
+  return (txs || [])
+    .map((tx, index) => ({ tx, index }))
+    .sort((a, b) => transactionDay(a.tx) - transactionDay(b.tx) || a.index - b.index)
+    .map(({ tx }) => tx);
+}
+
+function bankDate(bank, year, month, day) {
+  const dayStr = String(day).padStart(2, '0');
+  const ms = MONTH_SHORT[month - 1];
+  const mu = MONTH_UPPER[month - 1];
+  if (bank === 'td') return `${mu}${dayStr}`;
+  if (bank === 'rbc') return `${dayStr} ${ms}`;
+  return `${ms} ${dayStr}`;
+}
+
+function isPayrollLike(tx, bank, payrollDescription) {
+  const text = `${tx.description || ''} ${tx.detail || ''}`.toUpperCase();
+  const payrollText = String(payrollDescription || '').toUpperCase();
+  return isCreditLike(tx, bank) && (
+    text.includes('PAYROLL') ||
+    text.includes('DIRECT DEPOSIT') ||
+    (payrollText && text.includes(payrollText))
+  );
+}
+
+function payrollTransaction(bank, year, month, day, amount, payrollDescription) {
+  const date = bankDate(bank, year, month, day);
+  const description = String(payrollDescription || 'PAYROLL DEPOSIT').toUpperCase();
+  if (bank === 'td') {
+    return { description, debit: 0, credit: amount, date };
+  }
+  if (bank === 'bmo') {
+    return { date, description: `Direct Deposit\n${description}`, deducted: 0, added: amount };
+  }
+  if (bank === 'simplii') {
+    return { transDate: date, effDate: date, description, fundsOut: 0, fundsIn: amount };
+  }
+  if (bank === 'scotia') {
+    return { date: `${MONTH_SHORT[month - 1]} ${day}`, description: 'Direct Deposit', detail: description, withdrawn: 0, deposited: amount };
+  }
+  if (bank === 'rbc') {
+    return { date, description, withdrawn: 0, deposited: amount };
+  }
+  return { date: `${MONTH_SHORT[month - 1]} ${day}`, description, detail: '', withdrawn: 0, deposited: amount };
+}
+
+function enforceBiweeklyPayrollTransactions(txs, bank, year, month, details, targetCount = 0) {
+  const amount = amountFromDetails(details, 'Biweekly payroll/deposits');
+  const payrollDescription = detailValue(details, 'Payroll deposit description');
+  if (!amount || !payrollDescription) return sortTransactionsByDate(txs);
+
+  const payrollDays = payrollDaysFromDetails(details, year, month);
+  if (!payrollDays.length) return sortTransactionsByDate(txs);
+
+  const nonPayroll = (txs || []).filter((tx) => !isPayrollLike(tx, bank, payrollDescription));
+  const payrolls = payrollDays.map((day) => payrollTransaction(bank, year, month, day, amount, payrollDescription));
+  const keepNonPayroll = targetCount > payrolls.length
+    ? sortTransactionsByDate(nonPayroll).slice(0, targetCount - payrolls.length)
+    : nonPayroll;
+  return sortTransactionsByDate([...keepNonPayroll, ...payrolls]);
+}
+
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
   if (txs.length >= targetCount) return txs;
   const needed = targetCount - txs.length;
@@ -778,13 +881,7 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
     }
   }
 
-  // Merge and re-sort by day
-  const merged = [...txs, ...fillers].sort((a, b) => {
-    const dayA = parseInt(String(a.date || a.transDate || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
-    const dayB = parseInt(String(b.date || b.transDate || '').match(/(\d{1,2})(?:\D|$)/)?.[1] || 1);
-    return dayA - dayB;
-  });
-  return merged;
+  return sortTransactionsByDate([...txs, ...fillers]);
 }
 
 function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, total) {
@@ -808,6 +905,10 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const localReminder = localArea
     ? `LOCAL TRANSACTION REMINDER: Local transaction area is ${localArea}. Use ${localArea}-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service descriptions for debit transactions.`
     : '';
+  const payrollDays = payrollDaysFromDetails(details, year, month);
+  const payrollReminder = payrollDays.length
+    ? `PAYROLL DATE REMINDER: Payroll/direct-deposit credits must appear on these day(s) of the month only: ${payrollDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
+    : '';
 
   return `${cleanDetails}
 
@@ -816,6 +917,7 @@ Opening balance: $${openingBalance.toFixed(2)}
 Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
 ${provinceReminder}
 ${localReminder}
+${payrollReminder}
 CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
 Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
 }
@@ -913,7 +1015,9 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       }
       if (inner.transactions) {
         inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
+        inner.transactions = enforceBiweeklyPayrollTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
+        inner.transactions = sortTransactionsByDate(inner.transactions);
       }
 
       currentBalance = calcClosing(currentBalance, inner.transactions || [], bank);
