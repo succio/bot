@@ -911,6 +911,13 @@ bot.on('text', async (ctx) => {
       d.months = months;
       d.year = parseIsoDate(d.startDate).getFullYear();
       d.month = parseIsoDate(d.startDate).getMonth() + 1;
+      sess.step = 'bank_opening_balance';
+      return ctx.reply('Opening balance amount (e.g. 5000):');
+    }
+    if (sess.step === 'bank_opening_balance') {
+      const val = parseFloat(text.replace(/[^0-9.]/g, ''));
+      if (isNaN(val) || val < 0) return ctx.reply('Please enter a valid opening balance amount (e.g. 5000):');
+      d.openingBalance = Math.round(val * 100) / 100;
       sess.step = 'bank_income_frequency';
       return ctx.reply('Income deposit frequency:', Markup.keyboard([
         ['Biweekly', 'Monthly'],
@@ -1101,7 +1108,7 @@ async function finalizeBankStatement(ctx, d) {
       `Branch address: ${branchAddress}`,
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
-      `Opening balance: $5000.00`,
+      `Opening balance: $${Number(d.openingBalance || 0).toFixed(2)}`,
       `Payroll deposit frequency: ${d.incomeFrequency || 'biweekly'}`,
       `${d.incomeFrequency === 'monthly' ? 'Monthly' : 'Biweekly'} payroll/deposits: $${Number(d.income).toFixed(2)}`,
       `Payroll deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
