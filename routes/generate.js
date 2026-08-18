@@ -374,7 +374,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountNo: "51326 14857 84"
   accountType: "Your Preferred Package"
 
-Biweekly payroll deposits (Scotia) use detail "73329246 Free Interac E-Transfer".
+Payroll deposits (Scotia) use detail "73329246 Free Interac E-Transfer".
 Filler deposits (Scotia) use detail with an 8-digit reference number prefix.
 
 All transactions must be in chronological order.
@@ -750,10 +750,16 @@ function amountFromDetails(details, label) {
   return match ? Number(match[1].replace(/,/g, '')) || 0 : 0;
 }
 
+function payrollFrequencyFromDetails(details) {
+  const raw = detailValue(details, 'Payroll deposit frequency').toLowerCase();
+  return raw === 'monthly' ? 'monthly' : 'biweekly';
+}
+
 function payrollDaysFromDetails(details, year, month) {
+  const frequency = payrollFrequencyFromDetails(details);
   const raw = detailValue(details, 'Payroll deposit days') || detailValue(details, 'Payroll deposit dates');
   const maxDay = daysInMonth(year, month);
-  if (!raw) return [1, 15].filter((day) => day <= maxDay);
+  if (!raw) return (frequency === 'monthly' ? [1] : [1, 15]).filter((day) => day <= maxDay);
 
   const days = String(raw)
     .split(/[,\n]+/)
@@ -767,7 +773,8 @@ function payrollDaysFromDetails(details, year, month) {
     })
     .filter((day) => Number.isInteger(day) && day >= 1 && day <= maxDay);
 
-  return [...new Set(days)].sort((a, b) => a - b);
+  const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
+  return frequency === 'monthly' ? uniqueDays.slice(0, 1) : uniqueDays;
 }
 
 function transactionDateText(tx) {
@@ -831,8 +838,14 @@ function payrollTransaction(bank, year, month, day, amount, payrollDescription) 
   return { date: `${MONTH_SHORT[month - 1]} ${day}`, description, detail: '', withdrawn: 0, deposited: amount };
 }
 
-function enforceBiweeklyPayrollTransactions(txs, bank, year, month, details, targetCount = 0) {
-  const amount = amountFromDetails(details, 'Biweekly payroll/deposits');
+function payrollAmountFromDetails(details) {
+  return amountFromDetails(details, 'Monthly payroll/deposits') ||
+    amountFromDetails(details, 'Biweekly payroll/deposits') ||
+    amountFromDetails(details, 'Payroll/deposits');
+}
+
+function enforcePayrollTransactions(txs, bank, year, month, details, targetCount = 0) {
+  const amount = payrollAmountFromDetails(details);
   const payrollDescription = detailValue(details, 'Payroll deposit description');
   if (!amount || !payrollDescription) return sortTransactionsByDate(txs);
 
@@ -1034,7 +1047,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       }
       if (inner.transactions) {
         inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
-        inner.transactions = enforceBiweeklyPayrollTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
+        inner.transactions = enforcePayrollTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
         inner.transactions = sortTransactionsByDate(inner.transactions);
       }

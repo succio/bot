@@ -911,14 +911,26 @@ bot.on('text', async (ctx) => {
       d.months = months;
       d.year = parseIsoDate(d.startDate).getFullYear();
       d.month = parseIsoDate(d.startDate).getMonth() + 1;
+      sess.step = 'bank_income_frequency';
+      return ctx.reply('Income deposit frequency:', Markup.keyboard([
+        ['Biweekly', 'Monthly'],
+        ['❌ Cancel']
+      ]).resize());
+    }
+    if (sess.step === 'bank_income_frequency') {
+      if (!['Biweekly', 'Monthly'].includes(text)) return ctx.reply('Please choose Biweekly or Monthly.');
+      d.incomeFrequency = text.toLowerCase();
       sess.step = 'bank_income';
-      return ctx.reply('Biweekly income/deposits (e.g 3200):');
+      return ctx.reply(`${text} income/deposits (e.g ${d.incomeFrequency === 'monthly' ? '6400' : '3200'}):`);
     }
     if (sess.step === 'bank_income') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val)) return ctx.reply('Please enter a valid number:');
       d.income = val;
       sess.step = 'bank_payroll_dates';
+      if (d.incomeFrequency === 'monthly') {
+        return ctx.reply('Payroll deposit date (day or full date, e.g. 1 or 2026-07-01):');
+      }
       return ctx.reply('Payroll deposit dates (comma-separated days or full dates, e.g. 1, 15 or 2026-07-01, 2026-07-15):');
     }
     if (sess.step === 'bank_payroll_dates') {
@@ -933,6 +945,9 @@ bot.on('text', async (ctx) => {
       const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
       if (!uniqueDays.length || uniqueDays.some((day) => day < 1 || day > 31)) {
         return ctx.reply('Please enter valid day numbers or full dates, like: 1, 15 or 2026-07-01, 2026-07-15');
+      }
+      if (d.incomeFrequency === 'monthly' && uniqueDays.length > 1) {
+        return ctx.reply('Monthly income should have one payroll deposit date. Enter one day or full date:');
       }
       d.payrollDays = uniqueDays;
       sess.step = 'bank_employer';
@@ -1087,7 +1102,8 @@ async function finalizeBankStatement(ctx, d) {
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $5000.00`,
-      `Biweekly payroll/deposits: $${Number(d.income).toFixed(2)}`,
+      `Payroll deposit frequency: ${d.incomeFrequency || 'biweekly'}`,
+      `${d.incomeFrequency === 'monthly' ? 'Monthly' : 'Biweekly'} payroll/deposits: $${Number(d.income).toFixed(2)}`,
       `Payroll deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
       `Employer name: ${d.employer}`,
       `Payroll deposit description: ${statementPayrollDescription(d.employer)}`,
