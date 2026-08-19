@@ -251,6 +251,7 @@ function mainMenu() {
 
 function queueGeneration(ctx, sess, jobName, worker) {
   const position = generationQueue.size + generationQueue.running + 1;
+  const queuedAt = Date.now();
   const data = JSON.parse(JSON.stringify(sess.data || {}));
   sess.flow = null;
   sess.step = null;
@@ -263,7 +264,17 @@ function queueGeneration(ctx, sess, jobName, worker) {
     mainMenu()
   ).catch((err) => console.error('Queue notice error:', err.message));
 
-  generationQueue.add(() => worker(data))
+  console.log(`[generation-queue] queued "${jobName}" position=${position} running=${generationQueue.running} pending=${generationQueue.size}`);
+
+  generationQueue.add(async () => {
+    const startedAt = Date.now();
+    console.log(`[generation-queue] started "${jobName}" waitMs=${startedAt - queuedAt} running=${generationQueue.running} pending=${generationQueue.size}`);
+    try {
+      return await worker(data);
+    } finally {
+      console.log(`[generation-queue] finished "${jobName}" runMs=${Date.now() - startedAt}`);
+    }
+  })
     .catch((err) => {
       console.error(`${jobName} queued job error:`, err.stack || err.message);
       return ctx.reply('⚠️ Generation failed. Please try again.', mainMenu()).catch(() => {});
@@ -1119,6 +1130,7 @@ async function finalizeBankStatement(ctx, d) {
       `Province: ${provinceFromAddress(d.address)}`,
       `Number of Transactions: ${txCount}`
     ].join('\n');
+    const bankPackageStartedAt = Date.now();
     const resp = await axios.post(`${appUrl}/api/generate/bank-package`, {
       bank: bankId(d.bank),
       months: d.months,
@@ -1126,6 +1138,7 @@ async function finalizeBankStatement(ctx, d) {
       startMonth: d.month,
       details
     }, { headers: { 'Content-Type': 'application/json', ...botAuthHeaders() } });
+    console.log(`[bank-package] ${d.bank} months=${d.months} txCount=${txCount} durationMs=${Date.now() - bankPackageStartedAt}`);
 
     const presets = resp.data.presets || [];
     if (!presets.length) throw new Error('No presets returned');

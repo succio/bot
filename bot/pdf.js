@@ -31,6 +31,7 @@ function getRenderBaseUrl() {
 }
 
 async function generatePdf(presetData) {
+  const startedAt = Date.now();
   const appUrl = getRenderBaseUrl();
   const targetUrl = `${appUrl}/index.html`;
   const renderToken = getRenderToken();
@@ -327,7 +328,7 @@ async function generatePdf(presetData) {
     const pdfBuf = Buffer.from(pdfData);
     if (pdfBuf.length < 2000) throw new Error(`PDF too small: ${pdfBuf.length} bytes — page did not render`);
 
-    console.log(`PDF generated (${docType}, ${visibleReport.id}): ${pdfBuf.length} bytes`);
+    console.log(`PDF generated (${docType}, ${visibleReport.id}): ${pdfBuf.length} bytes in ${Date.now() - startedAt}ms`);
     return pdfBuf;
 
   } finally {
