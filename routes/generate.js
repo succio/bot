@@ -627,6 +627,13 @@ function setTxWithdrawalAmount(tx, bank, amount) {
   return { ...tx, withdrawn: value };
 }
 
+function targetClosingBalanceFromDetails(details) {
+  const raw = detailValue(details, 'Target closing balance');
+  if (!raw) return null;
+  const match = raw.match(/-?\$?\s*([\d,]+(?:\.\d+)?)/);
+  return match ? Math.round(Number(match[1].replace(/,/g, '')) * 100) / 100 : null;
+}
+
 function capGeneratedWithdrawals(transactions, bank, openingBalance) {
   const rows = (transactions || []).map((tx) => ({ ...tx }));
   let balance = Math.max(0, Number(openingBalance) || 0);
@@ -674,6 +681,54 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
     }
 
     rows[index] = nextTx;
+  }
+
+  return rows;
+}
+
+function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClosing) {
+  if (targetClosing === null || targetClosing === undefined || Number.isNaN(Number(targetClosing))) {
+    return transactions || [];
+  }
+
+  const target = Math.max(0, Math.round(Number(targetClosing) * 100) / 100);
+  const rows = (transactions || []).map((tx) => ({ ...tx }));
+  let current = calcClosing(openingBalance, rows, bank);
+  let delta = Math.round((current - target) * 100) / 100;
+  if (Math.abs(delta) <= 0.01) return rows;
+
+  if (delta < 0) {
+    let needed = Math.abs(delta);
+    for (let i = rows.length - 1; i >= 0 && needed > 0; i--) {
+      if (rows[i]._customTransaction) continue;
+      const amount = txWithdrawalAmount(rows[i], bank);
+      if (amount <= 0) continue;
+      const reduction = Math.min(amount, needed);
+      rows[i] = setTxWithdrawalAmount(rows[i], bank, amount - reduction);
+      needed = Math.round((needed - reduction) * 100) / 100;
+    }
+    return rows;
+  }
+
+  const balancesAfter = [];
+  let running = Math.max(0, Number(openingBalance) || 0);
+  for (let i = 0; i < rows.length; i++) {
+    running = Math.round((running + txCreditAmount(rows[i], bank) - txWithdrawalAmount(rows[i], bank)) * 100) / 100;
+    balancesAfter[i] = running;
+  }
+
+  for (let i = rows.length - 1; i >= 0 && delta > 0; i--) {
+    if (rows[i]._customTransaction) continue;
+    const amount = txWithdrawalAmount(rows[i], bank);
+    if (amount <= 0) continue;
+    const futureMin = Math.min(...balancesAfter.slice(i));
+    const add = Math.min(delta, Math.max(0, Math.floor(futureMin * 100) / 100));
+    if (add <= 0) continue;
+    rows[i] = setTxWithdrawalAmount(rows[i], bank, amount + add);
+    delta = Math.round((delta - add) * 100) / 100;
+    for (let j = i; j < balancesAfter.length; j++) {
+      balancesAfter[j] = Math.round((balancesAfter[j] - add) * 100) / 100;
+    }
   }
 
   return rows;
@@ -1128,8 +1183,13 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const provinceMatch = details.match(/Province:\s*([A-Z]{2})/i);
   const province = provinceMatch ? provinceMatch[1].toUpperCase() : null;
 
-  // Strip any existing opening balance line from details to avoid conflict
-  const cleanDetails = details.trim().replace(/^opening\s*balance[^\n]*/im, '').trim();
+  // Strip balance lines from details so each month receives the computed opening,
+  // and only the final month receives the requested target closing balance.
+  const targetClosing = targetClosingBalanceFromDetails(details);
+  const cleanDetails = details.trim()
+    .replace(/^opening\s*balance[^\n]*/gim, '')
+    .replace(/^target\s*closing\s*balance[^\n]*/gim, '')
+    .trim();
 
   const provinceReminder = province
     ? `PROVINCE REMINDER: Province is ${province}. ALL merchant suffixes, cities, utilities, and mobile carriers MUST match the ${province} rules from RULE 3. Do NOT use ON/Ottawa/Nepean/ONCA for any other province.`
@@ -1151,11 +1211,15 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const customDepositReminder = customDepositDays.length
     ? `CUSTOM DEPOSIT DATE REMINDER: Custom deposit credits must appear on these day(s) of the month only: ${customDepositDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
     : '';
+  const targetReminder = (targetClosing !== null && idx === total - 1)
+    ? `Target closing balance: $${targetClosing.toFixed(2)}`
+    : '';
 
   return `${cleanDetails}
 
 Statement period: ${period.from} to ${period.to}
 Opening balance: $${openingBalance.toFixed(2)}
+${targetReminder}
 Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
 ${provinceReminder}
 ${localReminder}
@@ -1178,6 +1242,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
 
   const openingMatch = details.match(/opening\s*balance[:\s]*\$?([\d,]+\.?\d*)/i);
   let currentBalance = openingMatch ? parseFloat(openingMatch[1].replace(/,/g, '')) : 5000;
+  const targetClosingBalance = targetClosingBalanceFromDetails(details);
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const presets = [];
@@ -1267,6 +1332,9 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
         inner.transactions = sortTransactionsByDate(inner.transactions);
         inner.transactions = capGeneratedWithdrawals(inner.transactions, bank, currentBalance);
+        if (targetClosingBalance !== null && i === numMonths - 1) {
+          inner.transactions = rebalanceToTargetClosing(inner.transactions, bank, currentBalance, targetClosingBalance);
+        }
       }
 
       currentBalance = calcClosing(currentBalance, inner.transactions || [], bank);
