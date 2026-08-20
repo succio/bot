@@ -336,6 +336,7 @@ RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, yo
   closing = opening + sum(all credits/deposits) - sum(all debits/withdrawals)
   Adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
   Do the arithmetic before generating — work backwards from the target if needed.
+  Never create generated/filler withdrawal rows that make the running balance negative. Keep each filler withdrawal comfortably below the available running balance at that point in the month.
 
 RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area" first, then "Province" field):
   If "Local transaction area" is provided, all ordinary debit/withdrawal merchants must match that city/area.
@@ -602,6 +603,61 @@ function calcClosing(openingBalance, transactions, bank) {
     }
   }
   return Math.round(bal * 100) / 100;
+}
+
+function txCreditAmount(tx, bank) {
+  if (bank === 'td') return Number(tx.credit || 0) || 0;
+  if (bank === 'bmo') return Number(tx.added || 0) || 0;
+  if (bank === 'simplii') return Number(tx.fundsIn || 0) || 0;
+  return Number(tx.deposited || 0) || 0;
+}
+
+function txWithdrawalAmount(tx, bank) {
+  if (bank === 'td') return Number(tx.debit || 0) || 0;
+  if (bank === 'bmo') return Number(tx.deducted || 0) || 0;
+  if (bank === 'simplii') return Number(tx.fundsOut || 0) || 0;
+  return Number(tx.withdrawn || 0) || 0;
+}
+
+function setTxWithdrawalAmount(tx, bank, amount) {
+  const value = Math.max(0, Math.round(Number(amount || 0) * 100) / 100);
+  if (bank === 'td') return { ...tx, debit: value };
+  if (bank === 'bmo') return { ...tx, deducted: value };
+  if (bank === 'simplii') return { ...tx, fundsOut: value };
+  return { ...tx, withdrawn: value };
+}
+
+function capGeneratedWithdrawals(transactions, bank, openingBalance, details) {
+  const customRows = parseCustomTransactionsFromDetails(details)
+    .filter((tx) => tx.type === 'withdrawal')
+    .map((tx) => ({ ...tx, _day: customTransactionDay(tx, 2000, 1) }));
+  let balance = Math.max(0, Number(openingBalance) || 0);
+
+  return (transactions || []).map((tx) => {
+    const credit = txCreditAmount(tx, bank);
+    const withdrawal = txWithdrawalAmount(tx, bank);
+    let nextTx = tx;
+
+    if (credit > 0) {
+      balance = Math.round((balance + credit) * 100) / 100;
+      return nextTx;
+    }
+
+    const isUserCustomWithdrawal = customRows.some((row) => (
+      transactionText(tx).includes(row.description) &&
+      txWithdrawalAmount(tx, bank) === row.amount
+    ));
+
+    if (withdrawal > 0 && !isUserCustomWithdrawal) {
+      const maxWithdrawal = Math.max(0, Math.floor((balance - 1) * 100) / 100);
+      if (withdrawal > maxWithdrawal) {
+        nextTx = setTxWithdrawalAmount(tx, bank, maxWithdrawal);
+      }
+    }
+
+    balance = Math.max(0, Math.round((balance - txWithdrawalAmount(nextTx, bank)) * 100) / 100);
+    return nextTx;
+  });
 }
 
 // Province-aware filler merchant pool
@@ -1189,6 +1245,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
         inner.transactions = enforceCustomTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
         inner.transactions = sortTransactionsByDate(inner.transactions);
+        inner.transactions = capGeneratedWithdrawals(inner.transactions, bank, currentBalance, details);
       }
 
       currentBalance = calcClosing(currentBalance, inner.transactions || [], bank);
