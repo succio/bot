@@ -329,6 +329,33 @@ function cleanCustomDepositDescription(description) {
   return clean || 'CUSTOM DEPOSIT';
 }
 
+function parseCustomBankTransactionInput(text, type) {
+  const parts = String(text || '').split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 3) return null;
+  const date = parts.shift();
+  const amountPart = parts.pop();
+  const description = parts.join(', ').replace(/\s+/g, ' ').trim();
+  const amount = parseFloat(String(amountPart).replace(/[^0-9.]/g, ''));
+  const validDate = /^\d{1,2}$/.test(date) || /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const day = /^\d{1,2}$/.test(date) ? Number(date) : Number((date.match(/^\d{4}-\d{2}-(\d{2})$/) || [])[1]);
+  if (!validDate || day < 1 || day > 31 || !description || !Number.isFinite(amount) || amount <= 0) return null;
+  return {
+    type,
+    date,
+    description: description.toUpperCase(),
+    amount: Math.round(amount * 100) / 100
+  };
+}
+
+function customTransactionsDetails(transactions) {
+  const rows = Array.isArray(transactions) ? transactions : [];
+  if (!rows.length) return 'Custom transactions: none';
+  return [
+    'Custom transactions:',
+    ...rows.map((tx) => `Custom transaction: ${tx.type} | ${tx.date} | ${tx.description} | $${Number(tx.amount || 0).toFixed(2)}`)
+  ].join('\n');
+}
+
 function maskSinLast4(last4) {
   const digits = String(last4 || '').replace(/\D/g, '').slice(-4).padStart(4, '0');
   return `XXX XX${digits[0]} ${digits.slice(1)}`;
@@ -929,47 +956,50 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val) || val < 0) return ctx.reply('Please enter a valid opening balance amount (e.g. 5000):');
       d.openingBalance = Math.round(val * 100) / 100;
-      sess.step = 'bank_income_frequency';
-      return ctx.reply('custom deposit frequency:', Markup.keyboard([
-        ['Biweekly', 'Monthly'],
+      d.customTransactions = [];
+      sess.step = 'bank_custom_transaction_type';
+      return ctx.reply('Custom transaction type:', Markup.keyboard([
+        ['Deposit', 'Withdrawal'],
+        ['Done'],
         ['❌ Cancel']
       ]).resize());
     }
-    if (sess.step === 'bank_income_frequency') {
-      if (!['Biweekly', 'Monthly'].includes(text)) return ctx.reply('Please choose Biweekly or Monthly.');
-      d.incomeFrequency = text.toLowerCase();
-      sess.step = 'bank_income';
-      return ctx.reply(`Custom deposit amount (e.g ${d.incomeFrequency === 'monthly' ? '6400' : '3200'}):`);
+    if (sess.step === 'bank_custom_transaction_type') {
+      if (text === 'Done') {
+        const maxRows = statementMaxRows(d.bank);
+        sess.step = 'bank_transaction_rows';
+        return ctx.reply(`Total transaction rows (max: ${maxRows} for ${d.bank} statements):`, Markup.removeKeyboard());
+      }
+      if (!['Deposit', 'Withdrawal'].includes(text)) {
+        return ctx.reply('Please choose Deposit, Withdrawal, or Done.', Markup.keyboard([
+          ['Deposit', 'Withdrawal'],
+          ['Done'],
+          ['❌ Cancel']
+        ]).resize());
+      }
+      d.currentCustomTransactionType = text.toLowerCase();
+      sess.step = 'bank_custom_transaction_entry';
+      return ctx.reply(`Enter custom ${d.currentCustomTransactionType} as: date, description, amount\nExample: 2026-07-15, SNOWBALL MEDIA PAYROLL DEPOSIT, 3200`, Markup.removeKeyboard());
     }
-    if (sess.step === 'bank_income') {
-      const val = parseFloat(text.replace(/[^0-9.]/g, ''));
-      if (isNaN(val)) return ctx.reply('Please enter a valid number:');
-      d.income = val;
-      sess.step = 'bank_payroll_dates';
-      if (d.incomeFrequency === 'monthly') {
-        return ctx.reply('Custom deposit date (day or full date, e.g. 1 or 2026-07-01)');
+    if (sess.step === 'bank_custom_transaction_entry') {
+      const tx = parseCustomBankTransactionInput(text, d.currentCustomTransactionType);
+      if (!tx) {
+        return ctx.reply('Please use this format: date, description, amount\nExample: 15, SNOWBALL MEDIA PAYROLL DEPOSIT, 3200');
       }
-      return ctx.reply('Custom deposit dates (comma-separated days or full dates, e.g. 1, 15 or 2026-07-01, 2026-07-15)');
-    }
-    if (sess.step === 'bank_payroll_dates') {
-      const days = text
-        .split(/[,\n]+/)
-        .map((part) => {
-          const iso = part.match(/\b\d{4}-\d{2}-(\d{2})\b/);
-          if (iso) return parseInt(iso[1], 10);
-          return parseInt(part.replace(/\D/g, ''), 10);
-        })
-        .filter((day) => Number.isInteger(day));
-      const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
-      if (!uniqueDays.length || uniqueDays.some((day) => day < 1 || day > 31)) {
-        return ctx.reply('Please enter valid day numbers or full dates, like: 1, 15 or 2026-07-01, 2026-07-15');
+      d.customTransactions = Array.isArray(d.customTransactions) ? d.customTransactions : [];
+      d.customTransactions.push(tx);
+      delete d.currentCustomTransactionType;
+      const maxRows = statementMaxRows(d.bank);
+      if (d.customTransactions.length >= maxRows) {
+        sess.step = 'bank_transaction_rows';
+        return ctx.reply(`Added ${tx.type}: ${tx.date}, ${tx.description}, $${Number(tx.amount).toFixed(2)}\nYou have reached the ${maxRows}-row limit for ${d.bank} statements.\nTotal transaction rows (max: ${maxRows} for ${d.bank} statements):`);
       }
-      if (d.incomeFrequency === 'monthly' && uniqueDays.length > 1) {
-        return ctx.reply('Monthly income should have one payroll deposit date. Enter one day or full date:');
-      }
-      d.payrollDays = uniqueDays;
-      sess.step = 'bank_employer';
-      return ctx.reply('Custom deposit description:');
+      sess.step = 'bank_custom_transaction_type';
+      return ctx.reply(`Added ${tx.type}: ${tx.date}, ${tx.description}, $${Number(tx.amount).toFixed(2)}\nAdd another custom transaction?`, Markup.keyboard([
+        ['Deposit', 'Withdrawal'],
+        ['Done'],
+        ['❌ Cancel']
+      ]).resize());
     }
     if (sess.step === 'bank_employer') {
       d.customDepositDescription = text;
@@ -982,6 +1012,8 @@ bot.on('text', async (ctx) => {
       const val = parseInt(text.replace(/[^0-9]/g, ''), 10);
       if (!Number.isInteger(val) || val < 1) return ctx.reply(`Please enter a valid row count from 1 to ${maxRows}:`);
       if (val > maxRows) return ctx.reply(`${d.bank} statements support a maximum of ${maxRows} transaction rows. Enter ${maxRows} or less:`);
+      const customCount = Array.isArray(d.customTransactions) ? d.customTransactions.length : 0;
+      if (val < customCount) return ctx.reply(`You added ${customCount} custom transaction(s). Enter at least ${customCount} total transaction rows:`);
       d.txCount = val;
       return queueGeneration(ctx, sess, `${d.months}-month ${d.bank} statement`, (data) => finalizeBankStatement(ctx, data));
     }
@@ -1120,10 +1152,7 @@ async function finalizeBankStatement(ctx, d) {
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $${Number(d.openingBalance || 0).toFixed(2)}`,
-      `Custom deposit frequency: ${d.incomeFrequency || 'biweekly'}`,
-      `${d.incomeFrequency === 'monthly' ? 'Monthly' : 'Biweekly'} custom deposits: $${Number(d.income).toFixed(2)}`,
-      `Custom deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
-      `Custom deposit description: ${cleanCustomDepositDescription(d.customDepositDescription)}`,
+      customTransactionsDetails(d.customTransactions),
       `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,
       'Transaction description rule: Use local merchant descriptions based on the address provided. Toronto addresses must use Toronto-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions. Calgary addresses must use Calgary-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions.',
       `Province: ${provinceFromAddress(d.address)}`,

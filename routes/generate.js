@@ -355,7 +355,7 @@ RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — CUSTOM DEPOSIT PLACEMENT: The only credit/deposit transactions allowed are the custom deposits explicitly provided by the user. Place those custom deposit credits on the EXACT dates specified. Never add random deposits, incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions. If "Custom deposit description" is provided, use that exact text for custom deposit credit descriptions.
+RULE 4 — CUSTOM TRANSACTION PLACEMENT: The only credit/deposit transactions allowed are custom deposit transactions explicitly provided by the user. Place every user-provided custom transaction, deposit or withdrawal, on the EXACT date specified with the EXACT description and amount. Never add random deposits, incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions.
 
 RULE 5 — CHRONOLOGICAL ORDER: All requested transactions must be in strict ascending date order.
 
@@ -374,7 +374,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountNo: "51326 14857 84"
   accountType: "Your Preferred Package"
 
-Custom deposits (Scotia) use the provided custom deposit description in the transaction detail.
+Custom transactions (Scotia) use the provided custom transaction description in the transaction detail.
 Do not create filler deposits for any bank.
 
 All transactions must be in chronological order.
@@ -810,6 +810,81 @@ function bankDate(bank, year, month, day) {
   return `${ms} ${dayStr}`;
 }
 
+function parseCustomTransactionsFromDetails(details) {
+  return String(details || '')
+    .split(/\n+/)
+    .map((line) => line.match(/^Custom transaction:\s*(deposit|withdrawal)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*\$?\s*([\d,]+(?:\.\d+)?)/i))
+    .filter(Boolean)
+    .map((match) => ({
+      type: match[1].toLowerCase(),
+      date: match[2].trim(),
+      description: match[3].trim().toUpperCase(),
+      amount: Number(match[4].replace(/,/g, '')) || 0
+    }))
+    .filter((tx) => tx.description && tx.amount > 0);
+}
+
+function customTransactionAppliesToMonth(tx, year, month) {
+  const iso = String(tx.date || '').match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (!iso) return true;
+  return Number(iso[1]) === year && Number(iso[2]) === month;
+}
+
+function customTransactionDay(tx, year, month) {
+  const maxDay = daysInMonth(year, month);
+  const raw = String(tx.date || '').trim();
+  const iso = raw.match(/\b\d{4}-\d{2}-(\d{2})\b/);
+  const day = iso ? Number(iso[1]) : Number((raw.match(/\b([0-3]?\d)\b/) || [])[1]);
+  return Math.min(Math.max(Number.isInteger(day) ? day : 1, 1), maxDay);
+}
+
+function customTransactionForBank(bank, year, month, tx) {
+  const day = customTransactionDay(tx, year, month);
+  const date = bankDate(bank, year, month, day);
+  const description = String(tx.description || 'CUSTOM TRANSACTION').toUpperCase();
+  const amount = Number(tx.amount || 0);
+  const isDeposit = tx.type === 'deposit';
+
+  if (bank === 'td') {
+    return { description, debit: isDeposit ? 0 : amount, credit: isDeposit ? amount : 0, date };
+  }
+  if (bank === 'bmo') {
+    return { date, description, deducted: isDeposit ? 0 : amount, added: isDeposit ? amount : 0 };
+  }
+  if (bank === 'simplii') {
+    return { transDate: date, effDate: date, description, fundsOut: isDeposit ? 0 : amount, fundsIn: isDeposit ? amount : 0 };
+  }
+  if (bank === 'scotia') {
+    return {
+      date: `${MONTH_SHORT[month - 1]} ${day}`,
+      description: isDeposit ? 'Deposit' : 'Purchase',
+      detail: description,
+      withdrawn: isDeposit ? 0 : amount,
+      deposited: isDeposit ? amount : 0
+    };
+  }
+  if (bank === 'rbc') {
+    return { date, description, withdrawn: isDeposit ? 0 : amount, deposited: isDeposit ? amount : 0 };
+  }
+  return {
+    date: `${MONTH_SHORT[month - 1]} ${day}`,
+    description,
+    detail: '',
+    withdrawn: isDeposit ? 0 : amount,
+    deposited: isDeposit ? amount : 0
+  };
+}
+
+function transactionText(tx) {
+  return `${tx.description || ''} ${tx.detail || ''}`.toUpperCase();
+}
+
+function isGeneratedCustomTransaction(tx, customRows) {
+  const text = transactionText(tx);
+  const day = transactionDay(tx);
+  return customRows.some((row) => text.includes(row.description) && day === row._day);
+}
+
 function customDepositTransaction(bank, year, month, day, amount, customDescription) {
   const date = bankDate(bank, year, month, day);
   const description = String(customDescription || 'CUSTOM DEPOSIT').toUpperCase();
@@ -854,6 +929,28 @@ function enforceCustomDepositTransactions(txs, bank, year, month, details, targe
     ? sortTransactionsByDate(nonCreditTransactions).slice(0, targetCount - customDeposits.length)
     : nonCreditTransactions;
   return sortTransactionsByDate([...keepNonCustomDeposits, ...customDeposits]);
+}
+
+function enforceCustomTransactions(txs, bank, year, month, details, targetCount = 0) {
+  const customRows = parseCustomTransactionsFromDetails(details)
+    .filter((tx) => customTransactionAppliesToMonth(tx, year, month))
+    .map((tx) => ({ ...tx, _day: customTransactionDay(tx, year, month) }));
+
+  if (!customRows.length) {
+    return enforceCustomDepositTransactions(txs, bank, year, month, details, targetCount);
+  }
+
+  const customTxs = customRows.map((tx) => customTransactionForBank(bank, year, month, tx));
+  const nonGeneratedCustomRows = (txs || []).filter((tx) => (
+    !isCreditLike(tx, bank) &&
+    !isGeneratedCustomTransaction(tx, customRows)
+  ));
+  const remainingCount = Math.max((Number(targetCount) || 0) - customTxs.length, 0);
+  const keepRows = remainingCount
+    ? sortTransactionsByDate(nonGeneratedCustomRows).slice(0, remainingCount)
+    : [];
+
+  return sortTransactionsByDate([...keepRows, ...customTxs]);
 }
 
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
@@ -928,7 +1025,16 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const localReminder = localArea
     ? `LOCAL TRANSACTION REMINDER: Local transaction area is ${localArea}. Use ${localArea}-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service descriptions for debit transactions.`
     : '';
-  const customDepositDays = customDepositDaysFromDetails(details, year, month);
+  const customRows = parseCustomTransactionsFromDetails(details)
+    .filter((tx) => customTransactionAppliesToMonth(tx, year, month));
+  const legacyCustomDepositAmount = customDepositAmountFromDetails(details);
+  const legacyCustomDepositDescription = detailValue(details, 'Custom deposit description') || detailValue(details, 'Payroll deposit description');
+  const customDepositDays = (!customRows.length && legacyCustomDepositAmount && legacyCustomDepositDescription)
+    ? customDepositDaysFromDetails(details, year, month)
+    : [];
+  const customTransactionReminder = customRows.length
+    ? `CUSTOM TRANSACTION REMINDER: Include these exact custom transaction(s), and do not create any other deposit/credit rows: ${customRows.map((tx) => `${tx.type.toUpperCase()} ${bankDate(bank, year, month, customTransactionDay(tx, year, month))} ${tx.description.toUpperCase()} $${Number(tx.amount).toFixed(2)}`).join('; ')}.`
+    : '';
   const customDepositReminder = customDepositDays.length
     ? `CUSTOM DEPOSIT DATE REMINDER: Custom deposit credits must appear on these day(s) of the month only: ${customDepositDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
     : '';
@@ -940,6 +1046,7 @@ Opening balance: $${openingBalance.toFixed(2)}
 Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
 ${provinceReminder}
 ${localReminder}
+${customTransactionReminder}
 ${customDepositReminder}
 CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
 Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
@@ -1043,7 +1150,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       }
       if (inner.transactions) {
         inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
-        inner.transactions = enforceCustomDepositTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
+        inner.transactions = enforceCustomTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
         inner.transactions = sortTransactionsByDate(inner.transactions);
       }
