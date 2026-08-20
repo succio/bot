@@ -957,6 +957,13 @@ bot.on('text', async (ctx) => {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
       if (isNaN(val) || val < 0) return ctx.reply('Please enter a valid opening balance amount (e.g. 5000):');
       d.openingBalance = Math.round(val * 100) / 100;
+      sess.step = 'bank_target_closing_balance';
+      return ctx.reply('Target closing balance:');
+    }
+    if (sess.step === 'bank_target_closing_balance') {
+      const val = parseFloat(text.replace(/[^0-9.]/g, ''));
+      if (isNaN(val) || val < 0) return ctx.reply('Please enter a valid target closing balance amount (e.g. 2500):');
+      d.targetClosingBalance = Math.round(val * 100) / 100;
       d.customTransactions = [];
       sess.step = 'bank_custom_transaction_type';
       return ctx.reply('Custom transaction type:', Markup.keyboard([
@@ -1153,6 +1160,7 @@ async function finalizeBankStatement(ctx, d) {
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $${Number(d.openingBalance || 0).toFixed(2)}`,
+      `Target closing balance: $${Number(d.targetClosingBalance || 0).toFixed(2)}`,
       customTransactionsDetails(d.customTransactions),
       `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,
       'Transaction description rule: Use local merchant descriptions based on the address provided. Toronto addresses must use Toronto-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions. Calgary addresses must use Calgary-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions.',
