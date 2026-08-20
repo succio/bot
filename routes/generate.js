@@ -334,7 +334,7 @@ RULE 1 — TRANSACTION COUNT: Generate EXACTLY the number of transactions specif
 
 RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, you MUST hit it:
   closing = opening + sum(all credits/deposits) - sum(all debits/withdrawals)
-  Keep ordinary filler withdrawals present and realistic. If the target is higher than the natural closing balance, add one "ATM Deposit" row for the exact difference instead of deleting, zeroing, or shrinking ordinary transaction rows.
+  Keep ordinary filler withdrawals present and realistic. If the target is higher than the natural closing balance, add one "Interac E-Transfer" row for the exact difference instead of deleting, zeroing, or shrinking ordinary transaction rows.
   If the target is lower than the natural closing balance, adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
   Do the arithmetic before generating — work backwards from the target if needed.
   Never create withdrawal rows that make the running balance negative. Keep every withdrawal at or below the available running balance at that point in the month.
@@ -359,7 +359,7 @@ RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — CUSTOM TRANSACTION PLACEMENT: The only credit/deposit transactions allowed are custom deposit transactions explicitly provided by the user, plus an "ATM Deposit" row only when needed to hit the requested target closing balance. Place every user-provided custom transaction, deposit or withdrawal, on the EXACT date specified with the EXACT description and amount. Never add random incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions.
+RULE 4 — CUSTOM TRANSACTION PLACEMENT: The only credit/deposit transactions allowed are custom deposit transactions explicitly provided by the user, plus an "Interac E-Transfer" row only when needed to hit the requested target closing balance. Place every user-provided custom transaction, deposit or withdrawal, on the EXACT date specified with the EXACT description and amount. Never add random refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions.
 
 RULE 5 — CHRONOLOGICAL ORDER: All requested transactions must be in strict ascending date order.
 
@@ -379,7 +379,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountType: "Your Preferred Package"
 
 Custom transactions (Scotia) use the provided custom transaction description in the transaction detail.
-Do not create filler deposits for any bank except the single "ATM Deposit" row allowed when needed to hit the requested target closing balance.
+Do not create filler deposits for any bank except the single "Interac E-Transfer" row allowed when needed to hit the requested target closing balance.
 
 All transactions must be in chronological order.
 Return ONLY the JSON object. No other text.`;
@@ -636,13 +636,13 @@ function dropEmptyGeneratedTransactions(transactions, bank) {
   return (transactions || []).filter((tx) => tx._customTransaction || hasTransactionAmount(tx, bank));
 }
 
-function atmDepositTransaction(bank, date, amount) {
+function balancingDepositTransaction(bank, date, amount) {
   const value = Math.max(0, Math.round(Number(amount || 0) * 100) / 100);
-  if (bank === 'td') return { description: 'ATM Deposit', debit: 0, credit: value, date };
-  if (bank === 'bmo') return { date, description: 'ATM Deposit', deducted: 0, added: value };
-  if (bank === 'simplii') return { transDate: date, effDate: date, description: 'ATM Deposit', fundsOut: 0, fundsIn: value };
-  if (bank === 'scotia') return { date, description: 'ATM Deposit', detail: '', withdrawn: 0, deposited: value };
-  return { date, description: 'ATM Deposit', detail: '', withdrawn: 0, deposited: value };
+  if (bank === 'td') return { description: 'Interac E-Transfer', debit: 0, credit: value, date };
+  if (bank === 'bmo') return { date, description: 'Interac E-Transfer', deducted: 0, added: value };
+  if (bank === 'simplii') return { transDate: date, effDate: date, description: 'Interac E-Transfer', fundsOut: 0, fundsIn: value };
+  if (bank === 'scotia') return { date, description: 'Interac E-Transfer', detail: '', withdrawn: 0, deposited: value };
+  return { date, description: 'Interac E-Transfer', detail: '', withdrawn: 0, deposited: value };
 }
 
 function targetClosingBalanceFromDetails(details) {
@@ -669,7 +669,7 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
 
     if (withdrawal > 0 && isCustom && withdrawal > balance) {
       const neededDeposit = Math.round((withdrawal - balance) * 100) / 100;
-      const supportDeposit = atmDepositTransaction(bank, transactionDateText(tx), neededDeposit);
+      const supportDeposit = balancingDepositTransaction(bank, transactionDateText(tx), neededDeposit);
       rows.splice(index, 0, supportDeposit);
       balance = Math.round((balance + neededDeposit) * 100) / 100;
       index += 1;
@@ -709,7 +709,7 @@ function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClos
     const remainder = Math.abs(delta);
     if (remainder > 0.01) {
       const date = transactionDateText(rows[rows.length - 1]) || transactionDateText(rows.find(Boolean)) || '';
-      rows.push(atmDepositTransaction(bank, date, remainder));
+      rows.push(balancingDepositTransaction(bank, date, remainder));
     }
 
     return dropEmptyGeneratedTransactions(rows, bank);
@@ -1211,7 +1211,7 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
     ? customDepositDaysFromDetails(details, year, month)
     : [];
   const customTransactionReminder = customRows.length
-    ? `CUSTOM TRANSACTION REMINDER: Include these exact custom transaction(s). Do not create any other deposit/credit rows except an ATM Deposit row if needed to hit the target closing balance: ${customRows.map((tx) => `${tx.type.toUpperCase()} ${bankDate(bank, year, month, customTransactionDay(tx, year, month))} ${tx.description.toUpperCase()} $${Number(tx.amount).toFixed(2)}`).join('; ')}.`
+    ? `CUSTOM TRANSACTION REMINDER: Include these exact custom transaction(s). Do not create any other deposit/credit rows except an Interac E-Transfer row if needed to hit the target closing balance: ${customRows.map((tx) => `${tx.type.toUpperCase()} ${bankDate(bank, year, month, customTransactionDay(tx, year, month))} ${tx.description.toUpperCase()} $${Number(tx.amount).toFixed(2)}`).join('; ')}.`
     : '';
   const customDepositReminder = customDepositDays.length
     ? `CUSTOM DEPOSIT DATE REMINDER: Custom deposit credits must appear on these day(s) of the month only: ${customDepositDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
