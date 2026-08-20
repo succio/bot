@@ -358,7 +358,7 @@ RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — CUSTOM TRANSACTION PLACEMENT: The only credit/deposit transactions allowed are custom deposit transactions explicitly provided by the user. Place every user-provided custom transaction, deposit or withdrawal, on the EXACT date specified with the EXACT description and amount. Never add random deposits, incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions.
+RULE 4 — CUSTOM TRANSACTION PLACEMENT: The only credit/deposit transactions allowed are custom deposit transactions explicitly provided by the user, plus an "ATM Deposit" row only when needed to hit the requested target closing balance. Place every user-provided custom transaction, deposit or withdrawal, on the EXACT date specified with the EXACT description and amount. Never add random incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions.
 
 RULE 5 — CHRONOLOGICAL ORDER: All requested transactions must be in strict ascending date order.
 
@@ -627,6 +627,23 @@ function setTxWithdrawalAmount(tx, bank, amount) {
   return { ...tx, withdrawn: value };
 }
 
+function hasTransactionAmount(tx, bank) {
+  return txCreditAmount(tx, bank) > 0 || txWithdrawalAmount(tx, bank) > 0;
+}
+
+function dropEmptyGeneratedTransactions(transactions, bank) {
+  return (transactions || []).filter((tx) => tx._customTransaction || hasTransactionAmount(tx, bank));
+}
+
+function atmDepositTransaction(bank, date, amount) {
+  const value = Math.max(0, Math.round(Number(amount || 0) * 100) / 100);
+  if (bank === 'td') return { description: 'ATM Deposit', debit: 0, credit: value, date };
+  if (bank === 'bmo') return { date, description: 'ATM Deposit', deducted: 0, added: value };
+  if (bank === 'simplii') return { transDate: date, effDate: date, description: 'ATM Deposit', fundsOut: 0, fundsIn: value };
+  if (bank === 'scotia') return { date, description: 'ATM Deposit', detail: '', withdrawn: 0, deposited: value };
+  return { date, description: 'ATM Deposit', detail: '', withdrawn: 0, deposited: value };
+}
+
 function targetClosingBalanceFromDetails(details) {
   const raw = detailValue(details, 'Target closing balance');
   if (!raw) return null;
@@ -664,7 +681,15 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
       withdrawal = txWithdrawalAmount(nextTx, bank);
     }
 
-    if (withdrawal > 0 && (!isCustom || withdrawal > balance)) {
+    if (withdrawal > 0 && isCustom && withdrawal > balance) {
+      const neededDeposit = Math.round((withdrawal - balance) * 100) / 100;
+      const supportDeposit = atmDepositTransaction(bank, transactionDateText(tx), neededDeposit);
+      rows.splice(index, 0, supportDeposit);
+      balance = Math.round((balance + neededDeposit) * 100) / 100;
+      index += 1;
+    }
+
+    if (withdrawal > 0 && !isCustom) {
       const maxWithdrawal = Math.max(0, Math.floor((balance - 1) * 100) / 100);
       if (withdrawal > maxWithdrawal) {
         nextTx = setTxWithdrawalAmount(tx, bank, maxWithdrawal);
@@ -683,7 +708,7 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
     rows[index] = nextTx;
   }
 
-  return rows;
+  return dropEmptyGeneratedTransactions(rows, bank);
 }
 
 function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClosing) {
@@ -699,15 +724,25 @@ function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClos
 
   if (delta < 0) {
     let needed = Math.abs(delta);
-    for (let i = rows.length - 1; i >= 0 && needed > 0; i--) {
-      if (rows[i]._customTransaction) continue;
-      const amount = txWithdrawalAmount(rows[i], bank);
-      if (amount <= 0) continue;
-      const reduction = Math.min(amount, needed);
-      rows[i] = setTxWithdrawalAmount(rows[i], bank, amount - reduction);
-      needed = Math.round((needed - reduction) * 100) / 100;
+    for (let pass = 0; pass < 2 && needed > 0; pass++) {
+      const floor = pass === 0 ? 1 : 0;
+      for (let i = rows.length - 1; i >= 0 && needed > 0; i--) {
+        if (rows[i]._customTransaction) continue;
+        const amount = txWithdrawalAmount(rows[i], bank);
+        if (amount <= floor) continue;
+        const reduction = Math.min(amount - floor, needed);
+        rows[i] = setTxWithdrawalAmount(rows[i], bank, amount - reduction);
+        needed = Math.round((needed - reduction) * 100) / 100;
+      }
     }
-    return rows;
+
+    const remainder = Math.round((target - calcClosing(openingBalance, rows, bank)) * 100) / 100;
+    if (remainder > 0.01) {
+      const date = transactionDateText(rows[rows.length - 1]) || transactionDateText(rows.find(Boolean)) || '';
+      rows.push(atmDepositTransaction(bank, date, remainder));
+    }
+
+    return dropEmptyGeneratedTransactions(rows, bank);
   }
 
   const balancesAfter = [];
@@ -731,7 +766,7 @@ function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClos
     }
   }
 
-  return rows;
+  return dropEmptyGeneratedTransactions(rows, bank);
 }
 
 // Province-aware filler merchant pool
@@ -1206,7 +1241,7 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
     ? customDepositDaysFromDetails(details, year, month)
     : [];
   const customTransactionReminder = customRows.length
-    ? `CUSTOM TRANSACTION REMINDER: Include these exact custom transaction(s), and do not create any other deposit/credit rows: ${customRows.map((tx) => `${tx.type.toUpperCase()} ${bankDate(bank, year, month, customTransactionDay(tx, year, month))} ${tx.description.toUpperCase()} $${Number(tx.amount).toFixed(2)}`).join('; ')}.`
+    ? `CUSTOM TRANSACTION REMINDER: Include these exact custom transaction(s). Do not create any other deposit/credit rows except an ATM Deposit row if needed to hit the target closing balance: ${customRows.map((tx) => `${tx.type.toUpperCase()} ${bankDate(bank, year, month, customTransactionDay(tx, year, month))} ${tx.description.toUpperCase()} $${Number(tx.amount).toFixed(2)}`).join('; ')}.`
     : '';
   const customDepositReminder = customDepositDays.length
     ? `CUSTOM DEPOSIT DATE REMINDER: Custom deposit credits must appear on these day(s) of the month only: ${customDepositDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
