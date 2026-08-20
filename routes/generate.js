@@ -355,9 +355,9 @@ RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — PAYROLL PLACEMENT: Place payroll/direct deposit credits on the EXACT dates specified. Never move them. If "Payroll deposit description" is provided, use that exact text for payroll/direct-deposit credit descriptions.
+RULE 4 — CUSTOM DEPOSIT PLACEMENT: Place custom deposit/direct-deposit credits on the EXACT dates specified. Never move them. If "Custom deposit description" is provided, use that exact text for custom deposit credit descriptions.
 
-RULE 5 — CHRONOLOGICAL ORDER: All 50 transactions must be in strict ascending date order.
+RULE 5 — CHRONOLOGICAL ORDER: All requested transactions must be in strict ascending date order.
 
 RULE 6 — REALISTIC VARIETY: Use a natural mix across the month — groceries, gas, retail, utilities, restaurants, ATM withdrawals, e-transfers. Spread transactions across the full period, not clustered.
 
@@ -374,7 +374,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountNo: "51326 14857 84"
   accountType: "Your Preferred Package"
 
-Payroll deposits (Scotia) use detail "73329246 Free Interac E-Transfer".
+Custom deposits (Scotia) use the provided custom deposit description in the transaction detail.
 Filler deposits (Scotia) use detail with an 8-digit reference number prefix.
 
 All transactions must be in chronological order.
@@ -750,14 +750,17 @@ function amountFromDetails(details, label) {
   return match ? Number(match[1].replace(/,/g, '')) || 0 : 0;
 }
 
-function payrollFrequencyFromDetails(details) {
-  const raw = detailValue(details, 'Payroll deposit frequency').toLowerCase();
+function customDepositFrequencyFromDetails(details) {
+  const raw = (detailValue(details, 'Custom deposit frequency') || detailValue(details, 'Payroll deposit frequency')).toLowerCase();
   return raw === 'monthly' ? 'monthly' : 'biweekly';
 }
 
-function payrollDaysFromDetails(details, year, month) {
-  const frequency = payrollFrequencyFromDetails(details);
-  const raw = detailValue(details, 'Payroll deposit days') || detailValue(details, 'Payroll deposit dates');
+function customDepositDaysFromDetails(details, year, month) {
+  const frequency = customDepositFrequencyFromDetails(details);
+  const raw = detailValue(details, 'Custom deposit days') ||
+    detailValue(details, 'Custom deposit dates') ||
+    detailValue(details, 'Payroll deposit days') ||
+    detailValue(details, 'Payroll deposit dates');
   const maxDay = daysInMonth(year, month);
   if (!raw) return (frequency === 'monthly' ? [1] : [1, 15]).filter((day) => day <= maxDay);
 
@@ -807,30 +810,31 @@ function bankDate(bank, year, month, day) {
   return `${ms} ${dayStr}`;
 }
 
-function isPayrollLike(tx, bank, payrollDescription) {
+function isCustomDepositLike(tx, bank, customDescription) {
   const text = `${tx.description || ''} ${tx.detail || ''}`.toUpperCase();
-  const payrollText = String(payrollDescription || '').toUpperCase();
+  const customText = String(customDescription || '').toUpperCase();
   return isCreditLike(tx, bank) && (
+    text.includes('CUSTOM DEPOSIT') ||
     text.includes('PAYROLL') ||
     text.includes('DIRECT DEPOSIT') ||
-    (payrollText && text.includes(payrollText))
+    (customText && text.includes(customText))
   );
 }
 
-function payrollTransaction(bank, year, month, day, amount, payrollDescription) {
+function customDepositTransaction(bank, year, month, day, amount, customDescription) {
   const date = bankDate(bank, year, month, day);
-  const description = String(payrollDescription || 'PAYROLL DEPOSIT').toUpperCase();
+  const description = String(customDescription || 'CUSTOM DEPOSIT').toUpperCase();
   if (bank === 'td') {
     return { description, debit: 0, credit: amount, date };
   }
   if (bank === 'bmo') {
-    return { date, description: `Direct Deposit\n${description}`, deducted: 0, added: amount };
+    return { date, description, deducted: 0, added: amount };
   }
   if (bank === 'simplii') {
     return { transDate: date, effDate: date, description, fundsOut: 0, fundsIn: amount };
   }
   if (bank === 'scotia') {
-    return { date: `${MONTH_SHORT[month - 1]} ${day}`, description: 'Direct Deposit', detail: description, withdrawn: 0, deposited: amount };
+    return { date: `${MONTH_SHORT[month - 1]} ${day}`, description: 'Deposit', detail: description, withdrawn: 0, deposited: amount };
   }
   if (bank === 'rbc') {
     return { date, description, withdrawn: 0, deposited: amount };
@@ -838,26 +842,29 @@ function payrollTransaction(bank, year, month, day, amount, payrollDescription) 
   return { date: `${MONTH_SHORT[month - 1]} ${day}`, description, detail: '', withdrawn: 0, deposited: amount };
 }
 
-function payrollAmountFromDetails(details) {
-  return amountFromDetails(details, 'Monthly payroll/deposits') ||
+function customDepositAmountFromDetails(details) {
+  return amountFromDetails(details, 'Monthly custom deposits') ||
+    amountFromDetails(details, 'Biweekly custom deposits') ||
+    amountFromDetails(details, 'Custom deposit amount') ||
+    amountFromDetails(details, 'Monthly payroll/deposits') ||
     amountFromDetails(details, 'Biweekly payroll/deposits') ||
     amountFromDetails(details, 'Payroll/deposits');
 }
 
-function enforcePayrollTransactions(txs, bank, year, month, details, targetCount = 0) {
-  const amount = payrollAmountFromDetails(details);
-  const payrollDescription = detailValue(details, 'Payroll deposit description');
-  if (!amount || !payrollDescription) return sortTransactionsByDate(txs);
+function enforceCustomDepositTransactions(txs, bank, year, month, details, targetCount = 0) {
+  const amount = customDepositAmountFromDetails(details);
+  const customDescription = detailValue(details, 'Custom deposit description') || detailValue(details, 'Payroll deposit description');
+  if (!amount || !customDescription) return sortTransactionsByDate(txs);
 
-  const payrollDays = payrollDaysFromDetails(details, year, month);
-  if (!payrollDays.length) return sortTransactionsByDate(txs);
+  const customDepositDays = customDepositDaysFromDetails(details, year, month);
+  if (!customDepositDays.length) return sortTransactionsByDate(txs);
 
-  const nonPayroll = (txs || []).filter((tx) => !isPayrollLike(tx, bank, payrollDescription));
-  const payrolls = payrollDays.map((day) => payrollTransaction(bank, year, month, day, amount, payrollDescription));
-  const keepNonPayroll = targetCount > payrolls.length
-    ? sortTransactionsByDate(nonPayroll).slice(0, targetCount - payrolls.length)
-    : nonPayroll;
-  return sortTransactionsByDate([...keepNonPayroll, ...payrolls]);
+  const nonCustomDeposits = (txs || []).filter((tx) => !isCustomDepositLike(tx, bank, customDescription));
+  const customDeposits = customDepositDays.map((day) => customDepositTransaction(bank, year, month, day, amount, customDescription));
+  const keepNonCustomDeposits = targetCount > customDeposits.length
+    ? sortTransactionsByDate(nonCustomDeposits).slice(0, targetCount - customDeposits.length)
+    : nonCustomDeposits;
+  return sortTransactionsByDate([...keepNonCustomDeposits, ...customDeposits]);
 }
 
 function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
@@ -932,9 +939,9 @@ function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, t
   const localReminder = localArea
     ? `LOCAL TRANSACTION REMINDER: Local transaction area is ${localArea}. Use ${localArea}-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service descriptions for debit transactions.`
     : '';
-  const payrollDays = payrollDaysFromDetails(details, year, month);
-  const payrollReminder = payrollDays.length
-    ? `PAYROLL DATE REMINDER: Payroll/direct-deposit credits must appear on these day(s) of the month only: ${payrollDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
+  const customDepositDays = customDepositDaysFromDetails(details, year, month);
+  const customDepositReminder = customDepositDays.length
+    ? `CUSTOM DEPOSIT DATE REMINDER: Custom deposit credits must appear on these day(s) of the month only: ${customDepositDays.map((day) => bankDate(bank, year, month, day)).join(', ')}.`
     : '';
 
   return `${cleanDetails}
@@ -944,7 +951,7 @@ Opening balance: $${openingBalance.toFixed(2)}
 Month: ${monthLabel} (${ord} of ${total} in this consecutive package)
 ${provinceReminder}
 ${localReminder}
-${payrollReminder}
+${customDepositReminder}
 CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
 Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
 }
@@ -1047,7 +1054,7 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       }
       if (inner.transactions) {
         inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
-        inner.transactions = enforcePayrollTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
+        inner.transactions = enforceCustomDepositTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
         inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
         inner.transactions = sortTransactionsByDate(inner.transactions);
       }

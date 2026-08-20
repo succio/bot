@@ -320,13 +320,13 @@ function transactionAreaFromAddress(address) {
   return match ? match[1].trim().replace(/\s+/g, ' ') : '';
 }
 
-function statementPayrollDescription(employer) {
-  const clean = String(employer || 'EMPLOYER')
+function cleanCustomDepositDescription(description) {
+  const clean = String(description || 'CUSTOM DEPOSIT')
     .toUpperCase()
     .replace(/[^A-Z0-9& .'-]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return `${clean || 'EMPLOYER'} PAYROLL DEPOSIT`;
+  return clean || 'CUSTOM DEPOSIT';
 }
 
 function maskSinLast4(last4) {
@@ -930,7 +930,7 @@ bot.on('text', async (ctx) => {
       if (isNaN(val) || val < 0) return ctx.reply('Please enter a valid opening balance amount (e.g. 5000):');
       d.openingBalance = Math.round(val * 100) / 100;
       sess.step = 'bank_income_frequency';
-      return ctx.reply('Income deposit frequency:', Markup.keyboard([
+      return ctx.reply('custom deposit frequency:', Markup.keyboard([
         ['Biweekly', 'Monthly'],
         ['❌ Cancel']
       ]).resize());
@@ -939,7 +939,7 @@ bot.on('text', async (ctx) => {
       if (!['Biweekly', 'Monthly'].includes(text)) return ctx.reply('Please choose Biweekly or Monthly.');
       d.incomeFrequency = text.toLowerCase();
       sess.step = 'bank_income';
-      return ctx.reply(`${text} income/deposits (e.g ${d.incomeFrequency === 'monthly' ? '6400' : '3200'}):`);
+      return ctx.reply(`Custom deposit amount (e.g ${d.incomeFrequency === 'monthly' ? '6400' : '3200'}):`);
     }
     if (sess.step === 'bank_income') {
       const val = parseFloat(text.replace(/[^0-9.]/g, ''));
@@ -947,9 +947,9 @@ bot.on('text', async (ctx) => {
       d.income = val;
       sess.step = 'bank_payroll_dates';
       if (d.incomeFrequency === 'monthly') {
-        return ctx.reply('Payroll deposit date (day or full date, e.g. 1 or 2026-07-01):');
+        return ctx.reply('Custom deposit date (day or full date, e.g. 1 or 2026-07-01)');
       }
-      return ctx.reply('Payroll deposit dates (comma-separated days or full dates, e.g. 1, 15 or 2026-07-01, 2026-07-15):');
+      return ctx.reply('Custom deposit dates (comma-separated days or full dates, e.g. 1, 15 or 2026-07-01, 2026-07-15)');
     }
     if (sess.step === 'bank_payroll_dates') {
       const days = text
@@ -969,10 +969,10 @@ bot.on('text', async (ctx) => {
       }
       d.payrollDays = uniqueDays;
       sess.step = 'bank_employer';
-      return ctx.reply('Employer name:');
+      return ctx.reply('Custom deposit description:');
     }
     if (sess.step === 'bank_employer') {
-      d.employer = text;
+      d.customDepositDescription = text;
       const maxRows = statementMaxRows(d.bank);
       sess.step = 'bank_transaction_rows';
       return ctx.reply(`Total transaction rows (max: ${maxRows} for ${d.bank} statements):`);
@@ -1120,11 +1120,10 @@ async function finalizeBankStatement(ctx, d) {
       `Statement start date: ${d.startDate}`,
       `Statement end date: ${d.endDate}`,
       `Opening balance: $${Number(d.openingBalance || 0).toFixed(2)}`,
-      `Payroll deposit frequency: ${d.incomeFrequency || 'biweekly'}`,
-      `${d.incomeFrequency === 'monthly' ? 'Monthly' : 'Biweekly'} payroll/deposits: $${Number(d.income).toFixed(2)}`,
-      `Payroll deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
-      `Employer name: ${d.employer}`,
-      `Payroll deposit description: ${statementPayrollDescription(d.employer)}`,
+      `Custom deposit frequency: ${d.incomeFrequency || 'biweekly'}`,
+      `${d.incomeFrequency === 'monthly' ? 'Monthly' : 'Biweekly'} custom deposits: $${Number(d.income).toFixed(2)}`,
+      `Custom deposit days: ${(d.payrollDays || [1, 15]).join(', ')}`,
+      `Custom deposit description: ${cleanCustomDepositDescription(d.customDepositDescription)}`,
       `Local transaction area: ${transactionAreaFromAddress(d.address) || 'based on address'}`,
       'Transaction description rule: Use local merchant descriptions based on the address provided. Toronto addresses must use Toronto-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions. Calgary addresses must use Calgary-based grocery, utility, coffee shop, transit, restaurant, pharmacy, and local-service transactions.',
       `Province: ${provinceFromAddress(d.address)}`,
