@@ -628,28 +628,55 @@ function setTxWithdrawalAmount(tx, bank, amount) {
 }
 
 function capGeneratedWithdrawals(transactions, bank, openingBalance) {
+  const rows = (transactions || []).map((tx) => ({ ...tx }));
   let balance = Math.max(0, Number(openingBalance) || 0);
+  const reducibleWithdrawals = [];
 
-  return (transactions || []).map((tx) => {
+  for (let index = 0; index < rows.length; index++) {
+    const tx = rows[index];
     const credit = txCreditAmount(tx, bank);
     let withdrawal = txWithdrawalAmount(tx, bank);
     let nextTx = tx;
+    const isCustom = Boolean(tx._customTransaction);
 
     if (credit > 0) {
       balance = Math.round((balance + credit) * 100) / 100;
     }
 
-    if (withdrawal > 0) {
+    if (withdrawal > 0 && isCustom && withdrawal > balance) {
+      let needed = Math.round((withdrawal - balance + 1) * 100) / 100;
+      for (let i = reducibleWithdrawals.length - 1; i >= 0 && needed > 0; i--) {
+        const prior = reducibleWithdrawals[i];
+        const priorAmount = txWithdrawalAmount(rows[prior.index], bank);
+        const reduction = Math.min(priorAmount, needed);
+        rows[prior.index] = setTxWithdrawalAmount(rows[prior.index], bank, priorAmount - reduction);
+        prior.amount = txWithdrawalAmount(rows[prior.index], bank);
+        needed = Math.round((needed - reduction) * 100) / 100;
+        balance = Math.round((balance + reduction) * 100) / 100;
+      }
+      withdrawal = txWithdrawalAmount(nextTx, bank);
+    }
+
+    if (withdrawal > 0 && (!isCustom || withdrawal > balance)) {
       const maxWithdrawal = Math.max(0, Math.floor((balance - 1) * 100) / 100);
       if (withdrawal > maxWithdrawal) {
         nextTx = setTxWithdrawalAmount(tx, bank, maxWithdrawal);
+        rows[index] = nextTx;
         withdrawal = txWithdrawalAmount(nextTx, bank);
       }
-      balance = Math.max(0, Math.round((balance - withdrawal) * 100) / 100);
     }
 
-    return nextTx;
-  });
+    if (withdrawal > 0) {
+      balance = Math.max(0, Math.round((balance - withdrawal) * 100) / 100);
+      if (!isCustom) {
+        reducibleWithdrawals.push({ index, amount: withdrawal });
+      }
+    }
+
+    rows[index] = nextTx;
+  }
+
+  return rows;
 }
 
 // Province-aware filler merchant pool
@@ -930,13 +957,13 @@ function customTransactionForBank(bank, year, month, tx) {
   const isDeposit = tx.type === 'deposit';
 
   if (bank === 'td') {
-    return { description, debit: isDeposit ? 0 : amount, credit: isDeposit ? amount : 0, date };
+    return { description, debit: isDeposit ? 0 : amount, credit: isDeposit ? amount : 0, date, _customTransaction: true };
   }
   if (bank === 'bmo') {
-    return { date, description, deducted: isDeposit ? 0 : amount, added: isDeposit ? amount : 0 };
+    return { date, description, deducted: isDeposit ? 0 : amount, added: isDeposit ? amount : 0, _customTransaction: true };
   }
   if (bank === 'simplii') {
-    return { transDate: date, effDate: date, description, fundsOut: isDeposit ? 0 : amount, fundsIn: isDeposit ? amount : 0 };
+    return { transDate: date, effDate: date, description, fundsOut: isDeposit ? 0 : amount, fundsIn: isDeposit ? amount : 0, _customTransaction: true };
   }
   if (bank === 'scotia') {
     return {
@@ -944,18 +971,20 @@ function customTransactionForBank(bank, year, month, tx) {
       description: isDeposit ? 'Deposit' : 'Purchase',
       detail: description,
       withdrawn: isDeposit ? 0 : amount,
-      deposited: isDeposit ? amount : 0
+      deposited: isDeposit ? amount : 0,
+      _customTransaction: true
     };
   }
   if (bank === 'rbc') {
-    return { date, description, withdrawn: isDeposit ? 0 : amount, deposited: isDeposit ? amount : 0 };
+    return { date, description, withdrawn: isDeposit ? 0 : amount, deposited: isDeposit ? amount : 0, _customTransaction: true };
   }
   return {
     date: `${MONTH_SHORT[month - 1]} ${day}`,
     description,
     detail: '',
     withdrawn: isDeposit ? 0 : amount,
-    deposited: isDeposit ? amount : 0
+    deposited: isDeposit ? amount : 0,
+    _customTransaction: true
   };
 }
 
