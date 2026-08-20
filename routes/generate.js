@@ -355,15 +355,15 @@ RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area
   NL → suffix "NLCA", city St. John's, utility Newfoundland Power
   (Default to ON rules if province not specified)
 
-RULE 4 — CUSTOM DEPOSIT PLACEMENT: Place custom deposit/direct-deposit credits on the EXACT dates specified. Never move them. If "Custom deposit description" is provided, use that exact text for custom deposit credit descriptions.
+RULE 4 — CUSTOM DEPOSIT PLACEMENT: The only credit/deposit transactions allowed are the custom deposits explicitly provided by the user. Place those custom deposit credits on the EXACT dates specified. Never add random deposits, incoming e-transfers, refunds, transfers from friends, cashbacks, reversals, interest credits, or other credit transactions. If "Custom deposit description" is provided, use that exact text for custom deposit credit descriptions.
 
 RULE 5 — CHRONOLOGICAL ORDER: All requested transactions must be in strict ascending date order.
 
-RULE 6 — REALISTIC VARIETY: Use a natural mix across the month — groceries, gas, retail, utilities, restaurants, ATM withdrawals, e-transfers. Spread transactions across the full period, not clustered.
+RULE 6 — REALISTIC VARIETY: Use a natural mix across the month — groceries, gas, retail, utilities, restaurants, ATM withdrawals, and outgoing payments/transfers only. Spread transactions across the full period, not clustered.
 
 RULE 7 — FILLER MERCHANT FORMAT (by bank):
   TD statement: use format "OPOS MERCHANT CITY SUFFIX" or "APOS MERCHANT CITY SUFFIX" for debit card purchases
-  Scotia: use short transaction types in "description" such as "Purchase", "Direct Deposit", "Online payment to", "Withdrawal", or "Interac e-Transfer from". Put the merchant/reference in "detail" such as "Loblaws Toronto ON". Do NOT use OPOS/APOS in Scotia statements.
+  Scotia: use short debit transaction types in "description" such as "Purchase", "Online payment to", or "Withdrawal". Put the merchant/reference in "detail" such as "Loblaws Toronto ON". Do NOT use OPOS/APOS in Scotia statements. Do not use "Direct Deposit" or "Interac e-Transfer from" except for the user-provided custom deposit row.
   CIBC/RBC: use clean merchant names with city and suffix
 
 === DEFAULTS ===
@@ -375,7 +375,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountType: "Your Preferred Package"
 
 Custom deposits (Scotia) use the provided custom deposit description in the transaction detail.
-Filler deposits (Scotia) use detail with an 8-digit reference number prefix.
+Do not create filler deposits for any bank.
 
 All transactions must be in chronological order.
 Return ONLY the JSON object. No other text.`;
@@ -810,17 +810,6 @@ function bankDate(bank, year, month, day) {
   return `${ms} ${dayStr}`;
 }
 
-function isCustomDepositLike(tx, bank, customDescription) {
-  const text = `${tx.description || ''} ${tx.detail || ''}`.toUpperCase();
-  const customText = String(customDescription || '').toUpperCase();
-  return isCreditLike(tx, bank) && (
-    text.includes('CUSTOM DEPOSIT') ||
-    text.includes('PAYROLL') ||
-    text.includes('DIRECT DEPOSIT') ||
-    (customText && text.includes(customText))
-  );
-}
-
 function customDepositTransaction(bank, year, month, day, amount, customDescription) {
   const date = bankDate(bank, year, month, day);
   const description = String(customDescription || 'CUSTOM DEPOSIT').toUpperCase();
@@ -854,16 +843,16 @@ function customDepositAmountFromDetails(details) {
 function enforceCustomDepositTransactions(txs, bank, year, month, details, targetCount = 0) {
   const amount = customDepositAmountFromDetails(details);
   const customDescription = detailValue(details, 'Custom deposit description') || detailValue(details, 'Payroll deposit description');
-  if (!amount || !customDescription) return sortTransactionsByDate(txs);
+  const nonCreditTransactions = (txs || []).filter((tx) => !isCreditLike(tx, bank));
+  if (!amount || !customDescription) return sortTransactionsByDate(nonCreditTransactions);
 
   const customDepositDays = customDepositDaysFromDetails(details, year, month);
-  if (!customDepositDays.length) return sortTransactionsByDate(txs);
+  if (!customDepositDays.length) return sortTransactionsByDate(nonCreditTransactions);
 
-  const nonCustomDeposits = (txs || []).filter((tx) => !isCustomDepositLike(tx, bank, customDescription));
   const customDeposits = customDepositDays.map((day) => customDepositTransaction(bank, year, month, day, amount, customDescription));
   const keepNonCustomDeposits = targetCount > customDeposits.length
-    ? sortTransactionsByDate(nonCustomDeposits).slice(0, targetCount - customDeposits.length)
-    : nonCustomDeposits;
+    ? sortTransactionsByDate(nonCreditTransactions).slice(0, targetCount - customDeposits.length)
+    : nonCreditTransactions;
   return sortTransactionsByDate([...keepNonCustomDeposits, ...customDeposits]);
 }
 
