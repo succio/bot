@@ -334,7 +334,8 @@ RULE 1 — TRANSACTION COUNT: Generate EXACTLY the number of transactions specif
 
 RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, you MUST hit it:
   closing = opening + sum(all credits/deposits) - sum(all debits/withdrawals)
-  Adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
+  Keep ordinary filler withdrawals present and realistic. If the target is higher than the natural closing balance, add one "ATM Deposit" row for the exact difference instead of deleting, zeroing, or shrinking ordinary transaction rows.
+  If the target is lower than the natural closing balance, adjust individual debit amounts so the final closing balance matches the target exactly (±$1.00).
   Do the arithmetic before generating — work backwards from the target if needed.
   Never create withdrawal rows that make the running balance negative. Keep every withdrawal at or below the available running balance at that point in the month.
 
@@ -378,7 +379,7 @@ When the user says "same account holder" or does not specify name/address for Sc
   accountType: "Your Preferred Package"
 
 Custom transactions (Scotia) use the provided custom transaction description in the transaction detail.
-Do not create filler deposits for any bank.
+Do not create filler deposits for any bank except the single "ATM Deposit" row allowed when needed to hit the requested target closing balance.
 
 All transactions must be in chronological order.
 Return ONLY the JSON object. No other text.`;
@@ -654,7 +655,6 @@ function targetClosingBalanceFromDetails(details) {
 function capGeneratedWithdrawals(transactions, bank, openingBalance) {
   const rows = (transactions || []).map((tx) => ({ ...tx }));
   let balance = Math.max(0, Number(openingBalance) || 0);
-  const reducibleWithdrawals = [];
 
   for (let index = 0; index < rows.length; index++) {
     const tx = rows[index];
@@ -665,20 +665,6 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
 
     if (credit > 0) {
       balance = Math.round((balance + credit) * 100) / 100;
-    }
-
-    if (withdrawal > 0 && isCustom && withdrawal > balance) {
-      let needed = Math.round((withdrawal - balance + 1) * 100) / 100;
-      for (let i = reducibleWithdrawals.length - 1; i >= 0 && needed > 0; i--) {
-        const prior = reducibleWithdrawals[i];
-        const priorAmount = txWithdrawalAmount(rows[prior.index], bank);
-        const reduction = Math.min(priorAmount, needed);
-        rows[prior.index] = setTxWithdrawalAmount(rows[prior.index], bank, priorAmount - reduction);
-        prior.amount = txWithdrawalAmount(rows[prior.index], bank);
-        needed = Math.round((needed - reduction) * 100) / 100;
-        balance = Math.round((balance + reduction) * 100) / 100;
-      }
-      withdrawal = txWithdrawalAmount(nextTx, bank);
     }
 
     if (withdrawal > 0 && isCustom && withdrawal > balance) {
@@ -700,9 +686,6 @@ function capGeneratedWithdrawals(transactions, bank, openingBalance) {
 
     if (withdrawal > 0) {
       balance = Math.max(0, Math.round((balance - withdrawal) * 100) / 100);
-      if (!isCustom) {
-        reducibleWithdrawals.push({ index, amount: withdrawal });
-      }
     }
 
     rows[index] = nextTx;
@@ -723,20 +706,7 @@ function rebalanceToTargetClosing(transactions, bank, openingBalance, targetClos
   if (Math.abs(delta) <= 0.01) return rows;
 
   if (delta < 0) {
-    let needed = Math.abs(delta);
-    for (let pass = 0; pass < 2 && needed > 0; pass++) {
-      const floor = pass === 0 ? 1 : 0;
-      for (let i = rows.length - 1; i >= 0 && needed > 0; i--) {
-        if (rows[i]._customTransaction) continue;
-        const amount = txWithdrawalAmount(rows[i], bank);
-        if (amount <= floor) continue;
-        const reduction = Math.min(amount - floor, needed);
-        rows[i] = setTxWithdrawalAmount(rows[i], bank, amount - reduction);
-        needed = Math.round((needed - reduction) * 100) / 100;
-      }
-    }
-
-    const remainder = Math.round((target - calcClosing(openingBalance, rows, bank)) * 100) / 100;
+    const remainder = Math.abs(delta);
     if (remainder > 0.01) {
       const date = transactionDateText(rows[rows.length - 1]) || transactionDateText(rows.find(Boolean)) || '';
       rows.push(atmDepositTransaction(bank, date, remainder));
