@@ -339,8 +339,10 @@ RULE 2 — TARGET CLOSING BALANCE: When a target closing balance is provided, yo
 
 RULE 3 — LOCATION-AWARE MERCHANT NAMES (apply based on "Local transaction area" first, then "Province" field):
   If "Local transaction area" is provided, all ordinary debit/withdrawal merchants must match that city/area.
+  Always use detailed merchant descriptions with merchant name + city + province suffix, not vague labels like "Surrey groceries", "coffee shop", "pet store", "restaurant", "pharmacy", "transit", or "rent payment".
   Toronto → use Toronto-based merchants and services: Loblaws, Metro, FreshCo, Shoppers Drug Mart, TTC/PRESTO, Toronto Hydro, Tim Hortons, Starbucks, local restaurants and pharmacies, suffix ONCA.
   Calgary → use Calgary-based merchants and services: Safeway, Co-op Grocery, Real Canadian Superstore, Shoppers Drug Mart, Calgary Transit, ENMAX, ATCO Gas, Tim Hortons, Starbucks, local restaurants and pharmacies, suffix ABCA.
+  Surrey → use Surrey-based merchants and services: Loblaws, Save-On-Foods, Safeway, Real Canadian Superstore, Shoppers Drug Mart, London Drugs, Tim Hortons, Starbucks, BC Hydro, Telus, suffix BCCA.
   Never use Ottawa/Nepean merchants for a Toronto address. Never use Edmonton merchants for a Calgary address.
   If no local area is provided, apply the province rules:
   BC → suffix "BCCA", city Burnaby or Vancouver, utility BC Hydro, mobile Telus
@@ -633,6 +635,14 @@ const LOCAL_FILLER_MERCHANTS = {
     'ATCO GAS CALGARY ABCA', 'DOLLARAMA CALGARY ABCA', 'WINNERS CALGARY ABCA',
     'SOBEYS CALGARY ABCA', 'BOSTON PIZZA CALGARY ABCA'
   ],
+  SURREY: [
+    'LOBLAWS SURREY BCCA', 'SAVE-ON-FOODS SURREY BCCA', 'SAFEWAY SURREY BCCA',
+    'REAL CANADIAN SUPERSTORE SURREY BCCA', 'SHOPPERS DRUG MART SURREY BCCA',
+    'LONDON DRUGS SURREY BCCA', 'TIM HORTONS SURREY BCCA', 'STARBUCKS SURREY BCCA',
+    'BC HYDRO SURREY BCCA', 'TELUS SURREY BCCA', 'DOLLARAMA SURREY BCCA',
+    'WINNERS SURREY BCCA', 'A&W SURREY BCCA', 'BOSTON PIZZA SURREY BCCA',
+    'CO-OP GROCERY SURREY BCCA'
+  ],
 };
 const FILLER_AMOUNTS = [8.47, 12.33, 15.67, 18.99, 22.45, 25.11, 27.89, 31.42, 34.76, 37.23, 41.55, 44.88, 47.15, 9.63, 13.77, 16.44, 19.22, 23.88, 26.55, 29.14, 33.67, 36.41, 39.78, 43.22, 46.05];
 
@@ -641,6 +651,8 @@ function localAreaFromDetails(details) {
   const value = match ? match[1].trim().toUpperCase() : '';
   if (value.includes('TORONTO')) return 'TORONTO';
   if (value.includes('CALGARY')) return 'CALGARY';
+  if (value.includes('SURREY')) return 'SURREY';
+  if (value && value !== 'BASED ON ADDRESS') return value.replace(/[^A-Z .'-]/g, '').replace(/\s+/g, ' ').trim();
   return '';
 }
 
@@ -688,12 +700,36 @@ function titleCaseMerchant(text) {
 
 function merchantPoolFor(province, localArea = '') {
   const prov = (province || 'ON').toUpperCase();
-  return LOCAL_FILLER_MERCHANTS[localArea] || FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
+  if (LOCAL_FILLER_MERCHANTS[localArea]) return LOCAL_FILLER_MERCHANTS[localArea];
+  if (localArea) {
+    const suffixByProvince = {
+      BC: 'BCCA',
+      ON: 'ONCA',
+      AB: 'ABCA',
+      QC: 'QCCA',
+      SK: 'SKCA',
+      MB: 'MBCA',
+      NS: 'NSCA',
+      NB: 'NBCA',
+      NL: 'NLCA',
+      PE: 'PECA'
+    };
+    const suffix = suffixByProvince[prov] || 'ONCA';
+    const base = {
+      BC: ['LOBLAWS', 'SAVE-ON-FOODS', 'SAFEWAY', 'REAL CANADIAN SUPERSTORE', 'SHOPPERS DRUG MART', 'LONDON DRUGS', 'TIM HORTONS', 'STARBUCKS', 'BC HYDRO', 'TELUS', 'DOLLARAMA', 'WINNERS'],
+      AB: ['SAFEWAY', 'CO-OP GROCERY', 'REAL CANADIAN SUPERSTORE', 'SHOPPERS DRUG MART', 'TIM HORTONS', 'STARBUCKS', 'CALGARY TRANSIT', 'ENMAX', 'ATCO GAS', 'DOLLARAMA', 'WINNERS'],
+      SK: ['CO-OP GROCERY', 'SASKPOWER', 'SASKTEL MOBILE', 'TIM HORTONS', 'REAL CANADIAN SUPERSTORE', 'REGINA TRANSIT', 'STARBUCKS', 'SHOPPERS DRUG MART', 'DOLLARAMA', 'WINNERS'],
+      ON: ['LOBLAWS', 'METRO', 'FRESHCO', 'SHOPPERS DRUG MART', 'TIM HORTONS', 'STARBUCKS', 'TTC PRESTO', 'HYDRO', 'ROGERS', 'DOLLARAMA', 'WINNERS']
+    }[prov] || ['SHOPPERS DRUG MART', 'SOBEYS', 'TIM HORTONS', 'STARBUCKS', 'DOLLARAMA', 'WINNERS'];
+    return base.map((merchant) => `${merchant} ${localArea} ${suffix}`);
+  }
+  return FILLER_MERCHANTS[prov] || FILLER_MERCHANTS.ON;
 }
 
 function isGenericPurchaseDescription(value) {
-  return /^(purchase|point of sale purchase|debit card purchase|card purchase|pos purchase|payment)$/i
-    .test(String(value || '').trim());
+  const text = String(value || '').trim().toUpperCase();
+  if (/^(PURCHASE|POINT OF SALE PURCHASE|DEBIT CARD PURCHASE|CARD PURCHASE|POS PURCHASE|PAYMENT)$/.test(text)) return true;
+  return /\b(GROCERY STORE|GROCERIES|COFFEE SHOP|PET STORE|CLOTHING STORE|GAS STATION|GYM MEMBERSHIP|CINEMA|BOOKSTORE|RESTAURANT|PHARMACY|TRANSIT|RENT PAYMENT|MOBILE)$/.test(text);
 }
 
 function isCreditLike(tx, bank) {

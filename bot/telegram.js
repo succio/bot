@@ -310,6 +310,7 @@ function transactionAreaFromAddress(address) {
   const upper = String(address || '').toUpperCase();
   const knownAreas = [
     'TORONTO', 'CALGARY', 'OTTAWA', 'NEPEAN', 'VANCOUVER', 'BURNABY',
+    'SURREY',
     'EDMONTON', 'MONTREAL', 'LAVAL', 'WINNIPEG', 'REGINA', 'SASKATOON',
     'HALIFAX', 'MONCTON', 'FREDERICTON', 'CHARLOTTETOWN', 'ST JOHNS'
   ];
