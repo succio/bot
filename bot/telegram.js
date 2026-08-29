@@ -851,6 +851,15 @@ bot.hears('❌ Cancel', async (ctx) => {
 bot.on('text', async (ctx) => {
   const sess = initSession(ctx);
   const text = ctx.message.text.trim();
+  const command = text.split(/\s+/, 1)[0].replace(/@.+$/, '').toLowerCase();
+
+  if (['/adminbalance', '/tgusers', '/finduser', '/addbalance', '/addcredits', '/setbalance'].includes(command)) {
+    if (command === '/adminbalance') return adminBalanceHelpCommand(ctx);
+    if (command === '/tgusers') return tgUsersCommand(ctx);
+    if (command === '/finduser') return findUserCommand(ctx);
+    if (command === '/addbalance' || command === '/addcredits') return addBalanceCommand(ctx);
+    if (command === '/setbalance') return setBalanceCommand(ctx);
+  }
 
   if (text === '❌ Cancel') {
     sess.flow = null;
