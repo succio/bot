@@ -10,6 +10,11 @@ const { PACKAGES, DOCUMENT_PRICES, PRICE_LABELS } = require('../routes/payments-
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 bot.use(session());
 
+bot.use(async (ctx, next) => {
+  if (ctx.from && !ctx.from.is_bot) getOrCreateTgUser(ctx);
+  return next();
+});
+
 const MIN_TOPUP_USD = 35;
 const MAX_TOPUP_USD = 10000;
 const TOPUP_CURRENCIES = [
@@ -34,8 +39,8 @@ function getOrCreateTgUser(ctx) {
   const telegramId = ctx.from.id;
   const key = `tg:${telegramId}`;
   let user = users.get(key);
+  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ');
   if (!user) {
-    const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ');
     user = {
       email: key,
       password: '',
@@ -45,10 +50,29 @@ function getOrCreateTgUser(ctx) {
       package: null,
       telegramId,
       telegramName: name,
-      createdAt: new Date().toISOString()
+      telegramUsername: ctx.from.username || null,
+      createdAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString()
     };
     users.set(key, user);
     scheduleSave();
+  } else {
+    let changed = false;
+    if (name && user.telegramName !== name) {
+      user.telegramName = name;
+      changed = true;
+    }
+    if ((ctx.from.username || null) !== (user.telegramUsername || null)) {
+      user.telegramUsername = ctx.from.username || null;
+      changed = true;
+    }
+    const nowMs = Date.now();
+    const lastSeenMs = Date.parse(user.lastSeenAt || user.createdAt || 0) || 0;
+    if (nowMs - lastSeenMs > 5 * 60 * 1000) {
+      user.lastSeenAt = new Date(nowMs).toISOString();
+      changed = true;
+    }
+    if (changed) scheduleSave();
   }
   return user;
 }
@@ -1428,19 +1452,91 @@ async function finalizePaystub(ctx, d) {
   }
 }
 
-async function addBalanceCommand(ctx) {
+function isAdmin(ctx) {
   const adminTgId = process.env.ADMIN_TELEGRAM_ID;
-  if (!adminTgId || String(ctx.from.id) !== String(adminTgId)) {
-    return ctx.reply('❌ Unauthorized.');
-  }
-  const parts = ctx.message.text.split(' ');
-  if (parts.length < 3) return ctx.reply('Usage: /addbalance <telegram_id> <usd_amount>');
-  const targetId = parts[1];
-  const amount = parseFloat(parts[2]);
-  if (isNaN(amount)) return ctx.reply('Invalid amount.');
+  return adminTgId && String(ctx.from.id) === String(adminTgId);
+}
+
+function normalizeTelegramId(value) {
+  return String(value || '').trim().replace(/^tg[:-]?/i, '');
+}
+
+function telegramUsers() {
+  return Array.from(users.values())
+    .filter((user) => String(user.email || '').startsWith('tg:') || user.telegramId)
+    .map((user) => ({
+      ...user,
+      telegramId: normalizeTelegramId(user.telegramId || String(user.email || '').replace(/^tg:/, ''))
+    }))
+    .sort((a, b) => String(b.lastSeenAt || b.createdAt || '').localeCompare(String(a.lastSeenAt || a.createdAt || '')));
+}
+
+function findTelegramUser(targetId) {
+  const telegramId = normalizeTelegramId(targetId);
   const key = `tg:${targetId}`;
-  const user = users.get(key);
+  return users.get(`tg:${telegramId}`) || users.get(key);
+}
+
+function adminUsageText() {
+  return (
+    `Admin balance commands\n\n` +
+    `/tgusers — list Telegram users\n` +
+    `/finduser <id/name/username> — search users\n` +
+    `/addbalance <telegram_id> <usd_amount> — add USD balance\n` +
+    `/setbalance <telegram_id> <usd_amount> — replace USD balance\n\n` +
+    `Example: /addbalance 6873264932 100`
+  );
+}
+
+function userLine(user) {
+  const username = user.telegramUsername ? ` @${user.telegramUsername}` : '';
+  const name = user.telegramName ? ` ${user.telegramName}` : '';
+  const balance = formatUsd(getBalance(user));
+  const lastPurchase = user.lastPurchase ? `, last: ${user.lastPurchase}` : '';
+  return `${normalizeTelegramId(user.telegramId || user.email)}${username}${name} — ${balance}${lastPurchase}`;
+}
+
+async function tgUsersCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+  const list = telegramUsers();
+  if (!list.length) return ctx.reply('No Telegram users found yet.');
+
+  const lines = list.slice(0, 40).map(userLine);
+  const suffix = list.length > lines.length ? `\n\nShowing ${lines.length} of ${list.length} users.` : '';
+  await ctx.reply(`Telegram users\n\n${lines.join('\n')}${suffix}`);
+}
+
+async function findUserCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+  const query = ctx.message.text.split(/\s+/).slice(1).join(' ').trim().toLowerCase();
+  if (!query) return ctx.reply('Usage: /finduser <id/name/username>');
+
+  const matches = telegramUsers().filter((user) => {
+    return [
+      normalizeTelegramId(user.telegramId || user.email),
+      user.telegramName,
+      user.telegramUsername,
+      user.email
+    ].some((value) => String(value || '').toLowerCase().includes(query));
+  });
+
+  if (!matches.length) return ctx.reply(`No Telegram user matched "${query}".`);
+  await ctx.reply(`Matched users\n\n${matches.slice(0, 20).map(userLine).join('\n')}`);
+}
+
+async function addBalanceCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 3) return ctx.reply('Usage: /addbalance <telegram_id> <usd_amount>');
+  const targetId = normalizeTelegramId(parts[1]);
+  const amount = parseFloat(String(parts[2]).replace(/[$,]/g, ''));
+  if (!targetId) return ctx.reply('Missing Telegram user ID.');
+  if (!Number.isFinite(amount) || amount <= 0) return ctx.reply('Invalid amount.');
+
+  const user = findTelegramUser(targetId);
   if (!user) return ctx.reply(`No user found with Telegram ID ${targetId}.`);
+
   setBalance(user, getBalance(user) + amount);
   scheduleSave();
   await ctx.reply(`✅ Added ${formatUsd(amount)} to user ${targetId}. New balance: ${formatUsd(getBalance(user))}`);
@@ -1449,8 +1545,38 @@ async function addBalanceCommand(ctx) {
   } catch (e) {}
 }
 
-// ─── Admin: add USD balance via bot ──────────────────────────────────────────
+async function setBalanceCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 3) return ctx.reply('Usage: /setbalance <telegram_id> <usd_amount>');
+  const targetId = normalizeTelegramId(parts[1]);
+  const amount = parseFloat(String(parts[2]).replace(/[$,]/g, ''));
+  if (!targetId) return ctx.reply('Missing Telegram user ID.');
+  if (!Number.isFinite(amount) || amount < 0) return ctx.reply('Invalid amount.');
+
+  const user = findTelegramUser(targetId);
+  if (!user) return ctx.reply(`No user found with Telegram ID ${targetId}.`);
+
+  setBalance(user, amount);
+  scheduleSave();
+  await ctx.reply(`✅ Set user ${targetId} balance to ${formatUsd(getBalance(user))}`);
+  try {
+    await bot.telegram.sendMessage(targetId, `💰 Your account balance is now *${formatUsd(getBalance(user))}*.`, { parse_mode: 'Markdown' });
+  } catch (e) {}
+}
+
+async function adminBalanceHelpCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+  await ctx.reply(adminUsageText());
+}
+
+// ─── Admin: Telegram users and USD balances ─────────────────────────────────
+bot.command('adminbalance', adminBalanceHelpCommand);
+bot.command('tgusers', tgUsersCommand);
+bot.command('finduser', findUserCommand);
 bot.command('addbalance', addBalanceCommand);
 bot.command('addcredits', addBalanceCommand);
+bot.command('setbalance', setBalanceCommand);
 
 module.exports = { bot };
