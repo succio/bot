@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const paymentRoutes = require('./routes/payments');
 const creditRoutes = require('./routes/credits');
 const generateRoutes = require('./routes/generate');
+const { DATA_FILE, flushSave } = require('./lib/store');
 
 const REQUIRED_ENV = ['JWT_SECRET'];
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
@@ -129,9 +130,9 @@ async function seedUsers() {
     } else {
       console.log(`Seeded account updated: ${u.email} ($${user.balanceUsd ?? u.balanceUsd} balance, ${u.package})`);
     }
-    user.credits = u.credits;
+    if (user.credits === undefined || user.credits === null) user.credits = u.credits;
     if (user.balanceUsd === undefined || user.balanceUsd === null) user.balanceUsd = u.balanceUsd;
-    user.package = u.package;
+    user.package = user.package || u.package;
   }
   scheduleSave();
 }
@@ -159,6 +160,7 @@ async function seedTelegramUsers() {
     } else {
       const existing = users.get(key);
       if (existing.balanceUsd === undefined || existing.balanceUsd === null) existing.balanceUsd = u.balanceUsd;
+      if (existing.credits === undefined || existing.credits === null) existing.credits = u.credits;
       if (!existing.lastPurchase) existing.lastPurchase = u.lastPurchase;
       existing.package = existing.package || u.package;
       console.log(`Seeded Telegram user: ${u.telegramId} ($${existing.balanceUsd} balance)`);
@@ -202,11 +204,26 @@ async function startTelegramBot() {
   }
 }
 
-app.listen(PORT, '0.0.0.0', async () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`replicas.live server running on port ${PORT}`);
+  console.log(`User store: ${DATA_FILE}`);
   await seedAdmin();
   await seedUsers();
   await seedTelegramUsers();
   console.log(`APP_URL set to: ${process.env.APP_URL}`);
   await startTelegramBot();
 });
+
+function shutdown(signal) {
+  console.log(`${signal} received. Saving user store before shutdown.`);
+  flushSave();
+
+  server.close(() => {
+    process.exit(0);
+  });
+
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
