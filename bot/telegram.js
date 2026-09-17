@@ -853,12 +853,13 @@ bot.on('text', async (ctx) => {
   const text = ctx.message.text.trim();
   const command = text.split(/\s+/, 1)[0].replace(/@.+$/, '').toLowerCase();
 
-  if (['/adminbalance', '/tgusers', '/finduser', '/addbalance', '/addcredits', '/setbalance'].includes(command)) {
+  if (['/adminbalance', '/tgusers', '/finduser', '/addbalance', '/addcredits', '/setbalance', '/broadcast'].includes(command)) {
     if (command === '/adminbalance') return adminBalanceHelpCommand(ctx);
     if (command === '/tgusers') return tgUsersCommand(ctx);
     if (command === '/finduser') return findUserCommand(ctx);
     if (command === '/addbalance' || command === '/addcredits') return addBalanceCommand(ctx);
     if (command === '/setbalance') return setBalanceCommand(ctx);
+    if (command === '/broadcast') return broadcastCommand(ctx);
   }
 
   if (text === '❌ Cancel') {
@@ -1491,9 +1492,10 @@ function adminUsageText() {
     `Admin balance commands\n\n` +
     `/tgusers — list Telegram users\n` +
     `/finduser <id/name/username> — search users\n` +
+    `/broadcast <message> — send a bot message to all Telegram users\n` +
     `/addbalance <telegram_id> <usd_amount> — add USD balance\n` +
     `/setbalance <telegram_id> <usd_amount> — replace USD balance\n\n` +
-    `Example: /addbalance 6873264932 100`
+    `Example: /broadcast New documents are available today.`
   );
 }
 
@@ -1513,6 +1515,43 @@ async function tgUsersCommand(ctx) {
   const lines = list.slice(0, 40).map(userLine);
   const suffix = list.length > lines.length ? `\n\nShowing ${lines.length} of ${list.length} users.` : '';
   await ctx.reply(`Telegram users\n\n${lines.join('\n')}${suffix}`);
+}
+
+async function broadcastCommand(ctx) {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Unauthorized.');
+
+  const text = ctx.message.text.replace(/^\/broadcast(?:@\S+)?\s*/i, '').trim();
+  if (!text) return ctx.reply('Usage: /broadcast <message>');
+  if (text.length > 4000) return ctx.reply('Broadcast message is too long. Keep it under 4000 characters.');
+
+  const recipients = Array.from(new Set(
+    telegramUsers()
+      .map((user) => normalizeTelegramId(user.telegramId || user.email))
+      .filter(Boolean)
+  ));
+
+  if (!recipients.length) return ctx.reply('No Telegram users found yet.');
+
+  await ctx.reply(`Sending broadcast to ${recipients.length} user${recipients.length === 1 ? '' : 's'}...`);
+
+  let sent = 0;
+  let failed = 0;
+  const failedIds = [];
+
+  for (const telegramId of recipients) {
+    try {
+      await bot.telegram.sendMessage(telegramId, text);
+      sent += 1;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    } catch (err) {
+      failed += 1;
+      failedIds.push(telegramId);
+      console.error(`Broadcast failed for ${telegramId}:`, err.message);
+    }
+  }
+
+  const failedText = failedIds.length ? `\nFailed IDs: ${failedIds.slice(0, 10).join(', ')}${failedIds.length > 10 ? '...' : ''}` : '';
+  await ctx.reply(`Broadcast complete. Sent: ${sent}. Failed: ${failed}.${failedText}`);
 }
 
 async function findUserCommand(ctx) {
@@ -1584,6 +1623,7 @@ async function adminBalanceHelpCommand(ctx) {
 bot.command('adminbalance', adminBalanceHelpCommand);
 bot.command('tgusers', tgUsersCommand);
 bot.command('finduser', findUserCommand);
+bot.command('broadcast', broadcastCommand);
 bot.command('addbalance', addBalanceCommand);
 bot.command('addcredits', addBalanceCommand);
 bot.command('setbalance', setBalanceCommand);
