@@ -1207,6 +1207,8 @@ async function finalizeBankStatement(ctx, d) {
       months: d.months,
       startYear: d.year,
       startMonth: d.month,
+      startDate: d.startDate,
+      endDate: d.endDate,
       details
     }, { headers: { 'Content-Type': 'application/json', ...botAuthHeaders() } });
     console.log(`[bank-package] ${d.bank} months=${d.months} txCount=${txCount} durationMs=${Date.now() - bankPackageStartedAt}`);

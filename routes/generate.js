@@ -571,6 +571,74 @@ const MONTH_FULL  = ['January','February','March','April','May','June','July','A
 
 function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
 
+function parseIsoDate(text) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(text || ''))) return null;
+  const date = new Date(`${text}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isoDate(year, month, day) {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function addMonths(year, month, count) {
+  const zeroBased = month - 1 + count;
+  return {
+    year: year + Math.floor(zeroBased / 12),
+    month: (zeroBased % 12) + 1
+  };
+}
+
+function monthPeriodBounds(startDateText, endDateText, fallbackYear, fallbackMonth, idx, total) {
+  const fallbackLastDay = daysInMonth(fallbackYear, fallbackMonth);
+  const fallback = {
+    startDate: isoDate(fallbackYear, fallbackMonth, 1),
+    endDate: isoDate(fallbackYear, fallbackMonth, fallbackLastDay),
+    startDay: 1,
+    endDay: fallbackLastDay
+  };
+
+  const start = parseIsoDate(startDateText);
+  const end = parseIsoDate(endDateText);
+  if (!start || !end || end < start) return fallback;
+
+  const sameAsStartMonth = start.getFullYear() === fallbackYear && start.getMonth() + 1 === fallbackMonth;
+  const sameAsEndMonth = end.getFullYear() === fallbackYear && end.getMonth() + 1 === fallbackMonth;
+  const startDay = sameAsStartMonth ? start.getDate() : 1;
+  const endDay = sameAsEndMonth ? end.getDate() : fallbackLastDay;
+  if (endDay < startDay) return fallback;
+
+  return {
+    startDate: isoDate(fallbackYear, fallbackMonth, startDay),
+    endDate: isoDate(fallbackYear, fallbackMonth, endDay),
+    startDay,
+    endDay
+  };
+}
+
+function formatDateForBank(bank, dateText, side = 'to') {
+  const date = parseIsoDate(dateText);
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const s = MONTH_SHORT[month - 1];
+  const u = MONTH_UPPER[month - 1];
+  const dayStr = String(day).padStart(2, '0');
+  const yr2 = String(year).slice(2);
+
+  if (bank === 'td') return `${u} ${dayStr}/${yr2}`;
+  if (bank === 'cibc' && side === 'from') return `${s} ${day}`;
+  return `${s} ${dayStr}, ${year}`;
+}
+
+function formatPeriodForBounds(bank, bounds) {
+  return {
+    from: formatDateForBank(bank, bounds.startDate, 'from'),
+    to: formatDateForBank(bank, bounds.endDate, 'to')
+  };
+}
+
 function formatPeriod(bank, year, month) {
   const s = MONTH_SHORT[month - 1];
   const u = MONTH_UPPER[month - 1];
@@ -1126,28 +1194,58 @@ function enforceCustomTransactions(txs, bank, year, month, details, targetCount 
   return sortTransactionsByDate([...keepRows, ...customTxs]);
 }
 
-function padTransactions(txs, targetCount, bank, year, month, province, localArea = '') {
+function setTransactionDate(tx, bank, year, month, day) {
+  const date = bankDate(bank, year, month, day);
+  if (bank === 'simplii') return { ...tx, transDate: date, effDate: date };
+  return { ...tx, date };
+}
+
+function clampTransactionDates(txs, bank, year, month, startDay, endDay) {
+  return (txs || []).map((tx) => {
+    const day = transactionDay(tx);
+    const clamped = Math.min(Math.max(day, startDay), endDay);
+    return clamped === day ? tx : setTransactionDate(tx, bank, year, month, clamped);
+  });
+}
+
+function applyStatementPeriod(inner, bank, period) {
+  if (bank === 'bmo') {
+    inner.periodEnd = period.to;
+    return;
+  }
+
+  if (bank === 'simplii') {
+    inner.statementPeriodFrom = period.from;
+    inner.statementPeriodTo = period.to;
+    inner.statementDate = period.to;
+    return;
+  }
+
+  inner.statementFrom = period.from;
+  inner.statementTo = period.to;
+}
+
+function padTransactions(txs, targetCount, bank, year, month, province, localArea = '', startDay = 1, endDay = daysInMonth(year, month)) {
   if (txs.length >= targetCount) return txs;
   const needed = targetCount - txs.length;
   const pool = merchantPoolFor(province, localArea);
-  const days = daysInMonth(year, month);
   const mu = MONTH_UPPER[month - 1];
   const ms = MONTH_SHORT[month - 1];
 
   // Collect used days to spread fillers
-  const usedDays = new Set(txs.map(t => {
-    const m = String(t.date || t.transDate || '').match(/(\d{1,2})$/);
-    return m ? parseInt(m[1]) : null;
-  }).filter(Boolean));
+  const usedDays = new Set(txs.map(transactionDay).filter((day) => day >= startDay && day <= endDay));
 
-  // Pick days for filler — prefer unused, then any day in lower half of month
+  // Pick days for filler — prefer unused days inside the actual statement period.
   const candidateDays = [];
-  for (let d = days; d >= 1; d--) {
+  for (let d = endDay; d >= startDay; d--) {
     if (!usedDays.has(d)) candidateDays.push(d);
   }
-  // If we need more, allow repeating days
+  // If we need more, allow repeating days inside the actual statement period.
   while (candidateDays.length < needed) {
-    for (let d = Math.floor(days / 2); d >= 1 && candidateDays.length < needed; d--) {
+    for (let d = Math.floor((startDay + endDay) / 2); d >= startDay && candidateDays.length < needed; d--) {
+      candidateDays.push(d);
+    }
+    for (let d = endDay; d >= startDay && candidateDays.length < needed; d--) {
       candidateDays.push(d);
     }
   }
@@ -1177,8 +1275,8 @@ function padTransactions(txs, targetCount, bank, year, month, province, localAre
   return sortTransactionsByDate([...txs, ...fillers]);
 }
 
-function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, total) {
-  const period = formatPeriod(bank, year, month);
+function buildBankMonthPrompt(bank, details, year, month, openingBalance, idx, total, periodBounds = null) {
+  const period = periodBounds ? formatPeriodForBounds(bank, periodBounds) : formatPeriod(bank, year, month);
   const monthLabel = `${MONTH_FULL[month - 1]} ${year}`;
   const ord = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'][idx] || `${idx+1}th`;
 
@@ -1231,14 +1329,20 @@ ${localReminder}
 ${customTransactionReminder}
 ${customDepositReminder}
 CRITICAL INSTRUCTION — TRANSACTION COUNT: You MUST generate EXACTLY ${txCount} transaction objects in the "transactions" array. Count them before finalising — the array length must equal ${txCount}. Fewer is wrong. More is wrong. Exactly ${txCount}.
-Spread transactions across all days of the month. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
+Spread transactions only between ${period.from} and ${period.to}. Do not use transaction dates before the statement start date or after the statement end date. Vary spending amounts slightly for realism. Follow all BANK STATEMENT GENERATION RULES from the system prompt.`;
 }
 
 router.post('/bank-package', authMiddleware, async (req, res) => {
-  const { bank, months, startYear, startMonth, details } = req.body;
+  const { bank, months, startYear, startMonth, startDate, endDate, details } = req.body;
 
   if (!bank || !months || !startYear || !startMonth || !details || typeof details !== 'string') {
     return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  if ((startDate && !parseIsoDate(startDate)) || (endDate && !parseIsoDate(endDate))) {
+    return res.status(400).json({ error: 'Statement dates must use YYYY-MM-DD format.' });
+  }
+  if (startDate && endDate && parseIsoDate(endDate) < parseIsoDate(startDate)) {
+    return res.status(400).json({ error: 'End date must be after start date.' });
   }
   const numMonths = Math.min(Math.max(parseInt(months) || 1, 1), 12);
   const docType = BANK_DOC_TYPES[bank];
@@ -1255,7 +1359,12 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
   let curMonth = parseInt(startMonth);
 
   for (let i = 0; i < numMonths; i++) {
-    const userMessage = `Document type: ${docType}\n\n${buildBankMonthPrompt(bank, details, curYear, curMonth, currentBalance, i, numMonths)}`;
+    const expectedMonth = addMonths(parseInt(startYear), parseInt(startMonth), i);
+    curYear = expectedMonth.year;
+    curMonth = expectedMonth.month;
+    const periodBounds = monthPeriodBounds(startDate, endDate, curYear, curMonth, i, numMonths);
+    const period = formatPeriodForBounds(bank, periodBounds);
+    const userMessage = `Document type: ${docType}\n\n${buildBankMonthPrompt(bank, details, curYear, curMonth, currentBalance, i, numMonths, periodBounds)}`;
     try {
       const completion = await client.chat.completions.create({
         model: 'gpt-4o',
@@ -1282,6 +1391,8 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
 
       // Pad transactions server-side if the AI returned fewer than requested
       const inner = parsed[docType] || parsed.statement || parsed.bmoStatement || parsed.simpliiStatement || parsed.scotiaStatement || parsed.cibcStatement || parsed.rbcStatement || {};
+      parsed.documentType = docType;
+      parsed[docType] = inner;
       if (bank === 'td') {
         if (suppliedAddress) inner.address = suppliedAddress.toUpperCase();
         if (suppliedBranchAddress) inner.branchAddress = suppliedBranchAddress.toUpperCase();
@@ -1293,7 +1404,6 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       if (bank === 'bmo') {
         parsed.documentType = 'bmoStatement';
         parsed.bmoStatement = inner;
-        const period = formatPeriod(bank, curYear, curMonth);
         inner.name ||= '';
         inner.address ||= '';
         inner.branchAddress ||= '';
@@ -1303,7 +1413,6 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
         inner.planName ||= 'Performance Chequing';
         inner.accountNo ||= '';
         inner.accountType ||= 'Primary Chequing Account';
-        inner.periodEnd ||= period.to;
         inner.openingBalance = currentBalance;
         inner.transactions = (inner.transactions || []).map((tx) => ({
           date: tx.date || '',
@@ -1315,13 +1424,9 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       if (bank === 'simplii') {
         parsed.documentType = 'simpliiStatement';
         parsed.simpliiStatement = inner;
-        const period = formatPeriod(bank, curYear, curMonth);
         inner.name ||= '';
         inner.address ||= '';
         inner.accountNo ||= '';
-        inner.statementPeriodFrom ||= period.from;
-        inner.statementPeriodTo ||= period.to;
-        inner.statementDate ||= period.to;
         inner.openingBalance = currentBalance;
         inner.transactions = (inner.transactions || []).map((tx) => ({
           transDate: tx.transDate || tx.date || '',
@@ -1331,10 +1436,12 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
           fundsIn: Number(tx.fundsIn ?? tx.deposited ?? tx.credit ?? tx.added ?? 0) || 0
         }));
       }
+      applyStatementPeriod(inner, bank, period);
       if (inner.transactions) {
         inner.transactions = fixGenericTransactionDescriptions(inner.transactions, bank, province, localArea);
         inner.transactions = enforceCustomTransactions(inner.transactions, bank, curYear, curMonth, details, targetTxCount);
-        inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea);
+        inner.transactions = clampTransactionDates(inner.transactions, bank, curYear, curMonth, periodBounds.startDay, periodBounds.endDay);
+        inner.transactions = padTransactions(inner.transactions, targetTxCount, bank, curYear, curMonth, province, localArea, periodBounds.startDay, periodBounds.endDay);
         inner.transactions = sortTransactionsByDate(inner.transactions);
         inner.transactions = capGeneratedWithdrawals(inner.transactions, bank, currentBalance);
         if (targetClosingBalance !== null && i === numMonths - 1) {
@@ -1350,8 +1457,6 @@ router.post('/bank-package', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: `Generation failed at month ${i + 1}: ${err.message}`, partialPresets: presets });
     }
 
-    curMonth++;
-    if (curMonth > 12) { curMonth = 1; curYear++; }
   }
 
   res.json({ presets });

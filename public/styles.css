@@ -1165,6 +1165,11 @@ button:hover {
   font-size: 0.84rem;
 }
 
+.paystub,
+.paystub * {
+  font-family: var(--stub-body-font) !important;
+}
+
 .employment-letter {
   width: min(100%, 210mm);
   margin: 0 auto;
